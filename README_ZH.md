@@ -4,7 +4,7 @@
 
 ## 功能特色
 
-- **多协议支持**: ICMP Ping、HTTP/HTTPS (cURL)、DNS解析、UDP Ping
+- **多协议支持**: ICMP Ping、HTTP/HTTPS (cURL)、DNS解析、UDP Ping、TCP Ping
 - **智能分析**: 动态阈值计算、问题时段识别、统计分析
 - **详细日志**: 结构化日志记录，支持长期监控
 - **跨平台**: 支持 macOS、Linux、Windows
@@ -25,10 +25,14 @@
 ├── dns_lookup/                  # DNS 解析监控工具
 │   ├── monitor_dns.py           # DNS 解析监控脚本
 │   └── analyze_dns_log.py       # DNS 日志分析脚本
-└── udp_ping/                    # UDP Ping 监控工具
-    ├── ping_udp.py              # UDP ping 监控脚本
-    ├── analyze_udp_ping_log.py  # UDP ping 日志分析脚本
-    └── 使用说明.txt              # UDP ping 使用说明
+├── udp_ping/                    # UDP Ping 监控工具
+│   ├── ping_udp.py              # UDP ping 监控脚本
+│   ├── analyze_udp_ping_log.py  # UDP ping 日志分析脚本
+│   └── README.md                # UDP ping 使用说明
+└── tcp_ping/                    # TCP Ping 监控工具
+    ├── monitor_tcp_ping.py      # TCP ping 监控脚本
+    ├── analyze_tcp_ping_log.py  # TCP ping 日志分析脚本
+    └── README.md                # TCP ping 使用说明
 ```
 
 ## 工具详细介绍
@@ -120,6 +124,32 @@ python3 ping_udp.py target_host 53
 python3 analyze_udp_ping_log.py udp_ping_log.txt
 ```
 
+### 5. TCP Ping 监控 (`tcp_ping/`)
+
+**功能**: TCP 协议连通性测试和端口监控
+
+**特点**:
+- TCP 端口连通性检测
+- 并发连接测试
+- 实时 RTT 测量
+- 连接成功率统计
+- 支持任意 TCP 端口
+- 详细的连接时序分析
+
+**使用方法**:
+```bash
+# 基本 TCP ping
+python3 monitor_tcp_ping.py google.com 80
+python3 monitor_tcp_ping.py 8.8.8.8 53
+
+# 自定义参数
+python3 monitor_tcp_ping.py example.com 443 --interval 5 --timeout 10
+
+# 分析日志
+python3 analyze_tcp_ping_log.py tcp_monitor_google.com_80.log
+python3 analyze_tcp_ping_log.py tcp_monitor_8.8.8.8_53.log --markdown
+```
+
 ## 日志分析功能
 
 所有监控脚本都配备了对应的日志分析工具，提供以下分析功能：
@@ -174,6 +204,10 @@ python3 analyze_udp_ping_log.py udp_ping_log.txt
    # DNS 解析监控
    cd dns_lookup
    python3 monitor_dns.py --dns-server 8.8.8.8
+   
+   # TCP Ping 监控
+   cd tcp_ping
+   python3 monitor_tcp_ping.py google.com 80
    ```
 
 3. **分析监控结果**

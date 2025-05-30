@@ -6,7 +6,7 @@ This is a comprehensive network monitoring tools collection that includes variou
 
 ## Features
 
-- **Multi-protocol Support**: ICMP Ping, HTTP/HTTPS (cURL), DNS Resolution, UDP Ping
+- **Multi-Protocol Support**: ICMP Ping, HTTP/HTTPS (cURL), DNS Resolution, UDP Ping, TCP Ping
 - **Intelligent Analysis**: Dynamic threshold calculation, problem period identification, statistical analysis
 - **Detailed Logging**: Structured logging for long-term monitoring
 - **Cross-platform**: Supports macOS, Linux, Windows
@@ -27,10 +27,14 @@ This is a comprehensive network monitoring tools collection that includes variou
 ├── dns_lookup/                  # DNS resolution monitoring tools
 │   ├── monitor_dns.py           # DNS resolution monitoring script
 │   └── analyze_dns_log.py       # DNS log analysis script
-└── udp_ping/                    # UDP Ping monitoring tools
-    ├── ping_udp.py              # UDP ping monitoring script
-    ├── analyze_udp_ping_log.py  # UDP ping log analysis script
-    └── 使用说明.txt              # UDP ping usage instructions
+├── udp_ping/                    # UDP Ping monitoring tools
+│   ├── ping_udp.py              # UDP ping monitoring script
+│   ├── analyze_udp_ping_log.py  # UDP ping log analysis script
+│   └── README.md              # UDP ping usage instructions
+└── tcp_ping/                    # TCP Ping monitoring tools
+    ├── monitor_tcp_ping.py      # TCP ping monitoring script
+    ├── analyze_tcp_ping_log.py  # TCP ping log analysis script
+    └── README.md                # TCP ping usage instructions
 ```
 
 ## Detailed Tool Introduction
@@ -122,6 +126,32 @@ python3 ping_udp.py target_host 53
 python3 analyze_udp_ping_log.py udp_ping_log.txt
 ```
 
+### 5. TCP Ping Monitoring (`tcp_ping/`)
+
+**Function**: TCP protocol connectivity testing and port monitoring
+
+**Features**:
+- TCP port connectivity detection
+- Concurrent connection testing
+- Real-time RTT measurement
+- Connection success rate statistics
+- Support for any TCP port
+- Detailed connection timing analysis
+
+**Usage**:
+```bash
+# Basic TCP ping
+python3 monitor_tcp_ping.py google.com 80
+python3 monitor_tcp_ping.py 8.8.8.8 53
+
+# Custom parameters
+python3 monitor_tcp_ping.py example.com 443 --interval 5 --timeout 10
+
+# Analyze logs
+python3 analyze_tcp_ping_log.py tcp_monitor_google.com_80.log
+python3 analyze_tcp_ping_log.py tcp_monitor_8.8.8.8_53.log --markdown
+```
+
 ## Log Analysis Features
 
 All monitoring scripts are equipped with corresponding log analysis tools that provide the following analysis functions:
@@ -176,6 +206,10 @@ All monitoring scripts are equipped with corresponding log analysis tools that p
    # DNS resolution monitoring
    cd dns_lookup
    python3 monitor_dns.py --dns-server 8.8.8.8
+   
+   # TCP Ping monitoring
+   cd tcp_ping
+   python3 monitor_tcp_ping.py google.com 80
    ```
 
 3. **Analyze Monitoring Results**
