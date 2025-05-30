@@ -1,243 +1,245 @@
-# 网络监控工具集 (Network Monitoring Tools)
+# Network Monitoring Tools Collection
 
-这是一个功能完整的网络监控工具集合，包含多种网络连通性和性能监控脚本，适用于网络诊断、性能分析和故障排查。
+[中文版 / Chinese Version](README_ZH.md)
 
-## 功能特色
+This is a comprehensive network monitoring tools collection that includes various network connectivity and performance monitoring scripts, suitable for network diagnostics, performance analysis, and troubleshooting.
 
-- **多协议支持**: ICMP Ping、HTTP/HTTPS (cURL)、DNS解析、UDP Ping
-- **智能分析**: 动态阈值计算、问题时段识别、统计分析
-- **详细日志**: 结构化日志记录，支持长期监控
-- **跨平台**: 支持 macOS、Linux、Windows
-- **灵活配置**: 可自定义监控参数、间隔、超时等
-- **多格式输出**: 支持纯文本和 Markdown 格式报告
+## Features
 
-## 项目结构
+- **Multi-protocol Support**: ICMP Ping, HTTP/HTTPS (cURL), DNS Resolution, UDP Ping
+- **Intelligent Analysis**: Dynamic threshold calculation, problem period identification, statistical analysis
+- **Detailed Logging**: Structured logging for long-term monitoring
+- **Cross-platform**: Supports macOS, Linux, Windows
+- **Flexible Configuration**: Customizable monitoring parameters, intervals, timeouts, etc.
+- **Multiple Output Formats**: Supports plain text and Markdown format reports
+
+## Project Structure
 
 ```
 ai_written_tools/
-├── README.md                    # 项目说明文档
-├── icmp_ping/                   # ICMP Ping 监控工具
-│   ├── monitor_ping.py          # ICMP ping 监控脚本
-│   └── analyze_network_log.py   # ICMP ping 日志分析脚本
-├── curl_ping/                   # HTTP/HTTPS 监控工具
-│   ├── monitor_curl.py          # cURL 网站连通性监控脚本
-│   └── analyze_curl_log.py      # cURL 日志分析脚本
-├── dns_lookup/                  # DNS 解析监控工具
-│   ├── monitor_dns.py           # DNS 解析监控脚本
-│   └── analyze_dns_log.py       # DNS 日志分析脚本
-└── udp_ping/                    # UDP Ping 监控工具
-    ├── ping_udp.py              # UDP ping 监控脚本
-    ├── analyze_udp_ping_log.py  # UDP ping 日志分析脚本
-    └── 使用说明.txt              # UDP ping 使用说明
+├── README.md                    # Project documentation
+├── icmp_ping/                   # ICMP Ping monitoring tools
+│   ├── monitor_ping.py          # ICMP ping monitoring script
+│   └── analyze_network_log.py   # ICMP ping log analysis script
+├── curl_ping/                   # HTTP/HTTPS monitoring tools
+│   ├── monitor_curl.py          # cURL website connectivity monitoring script
+│   └── analyze_curl_log.py      # cURL log analysis script
+├── dns_lookup/                  # DNS resolution monitoring tools
+│   ├── monitor_dns.py           # DNS resolution monitoring script
+│   └── analyze_dns_log.py       # DNS log analysis script
+└── udp_ping/                    # UDP Ping monitoring tools
+    ├── ping_udp.py              # UDP ping monitoring script
+    ├── analyze_udp_ping_log.py  # UDP ping log analysis script
+    └── 使用说明.txt              # UDP ping usage instructions
 ```
 
-## 工具详细介绍
+## Detailed Tool Introduction
 
-### 1. ICMP Ping 监控 (`icmp_ping/`)
+### 1. ICMP Ping Monitoring (`icmp_ping/`)
 
-**功能**: 传统的 ICMP ping 监控，检测网络连通性和延迟
+**Function**: Traditional ICMP ping monitoring to detect network connectivity and latency
 
-**特点**:
-- 自动获取公网 IP 地址
-- 支持多平台 ping 命令
-- 实时显示 ping 结果和统计信息
-- 详细的网络延迟分析
+**Features**:
+- Automatic public IP address acquisition
+- Multi-platform ping command support
+- Real-time ping results and statistics display
+- Detailed network latency analysis
 
-**使用方法**:
+**Usage**:
 ```bash
-# 基本使用
+# Basic usage
 python3 monitor_ping.py google.com
 
-# 自定义参数
+# Custom parameters
 python3 monitor_ping.py google.com --interval 5 --timeout 10
 
-# 分析日志
+# Analyze logs
 python3 analyze_network_log.py ping_google.com.log
 python3 analyze_network_log.py ping_google.com.log --markdown
 ```
 
-### 2. HTTP/HTTPS 监控 (`curl_ping/`)
+### 2. HTTP/HTTPS Monitoring (`curl_ping/`)
 
-**功能**: 使用 cURL 监控网站的 HTTP/HTTPS 连通性
+**Function**: Monitor website HTTP/HTTPS connectivity using cURL
 
-**特点**:
-- DNS 解析结果显示
-- HTTP 状态码和响应时间记录
-- 支持 HTTPS 和重定向
-- 详细的错误信息记录
+**Features**:
+- DNS resolution results display
+- HTTP status code and response time recording
+- HTTPS and redirect support
+- Detailed error information recording
 
-**使用方法**:
+**Usage**:
 ```bash
-# 监控网站
+# Monitor websites
 python3 monitor_curl.py https://github.com
 python3 monitor_curl.py http://example.com --interval 10
 
-# 分析日志
+# Analyze logs
 python3 analyze_curl_log.py curl_monitor_github.com.log
 python3 analyze_curl_log.py curl_monitor_example.com.log --markdown
 ```
 
-### 3. DNS 解析监控 (`dns_lookup/`)
+### 3. DNS Resolution Monitoring (`dns_lookup/`)
 
-**功能**: 专门监控 DNS 解析性能和可靠性
+**Function**: Specialized monitoring of DNS resolution performance and reliability
 
-**特点**:
-- 固定解析 google.com 域名
-- 支持自定义 DNS 服务器
-- DNS 解析时间统计
-- IP 地址变化追踪
+**Features**:
+- Fixed resolution of google.com domain
+- Custom DNS server support
+- DNS resolution time statistics
+- IP address change tracking
 
-**使用方法**:
+**Usage**:
 ```bash
-# 使用系统默认 DNS
+# Use system default DNS
 python3 monitor_dns.py
 
-# 使用指定 DNS 服务器
+# Use specified DNS server
 python3 monitor_dns.py --dns-server 8.8.8.8
 python3 monitor_dns.py --dns-server 1.1.1.1 --interval 5
 
-# 分析日志
+# Analyze logs
 python3 analyze_dns_log.py dns_monitor_google.com_8.8.8.8.log
-python3 analyze_dns_log.py dns_monitor_google.com_system.log --markdown
+python3 analyze_dns_log.py dns_monitor_google.com_1.1.1.1.log --markdown
 ```
 
-### 4. UDP Ping 监控 (`udp_ping/`)
+### 4. UDP Ping Monitoring (`udp_ping/`)
 
-**功能**: UDP 协议的连通性测试
+**Function**: UDP protocol connectivity testing
 
-**特点**:
-- UDP 端口连通性检测
-- 支持自定义端口
-- 超时和错误处理
-- 详细的 UDP 连接统计
+**Features**:
+- UDP port connectivity detection
+- Custom port support
+- Timeout and error handling
+- Detailed UDP connection statistics
 
-**使用方法**:
+**Usage**:
 ```bash
-# 基本 UDP ping
+# Basic UDP ping
 python3 ping_udp.py target_host 53
 
-# 分析日志
+# Analyze logs
 python3 analyze_udp_ping_log.py udp_ping_log.txt
 ```
 
-## 日志分析功能
+## Log Analysis Features
 
-所有监控脚本都配备了对应的日志分析工具，提供以下分析功能：
+All monitoring scripts are equipped with corresponding log analysis tools that provide the following analysis functions:
 
-### 智能分析特性
-- **动态阈值计算**: 基于历史数据自动计算性能阈值
-- **问题时段识别**: 自动识别网络异常时间段
-- **统计分析**: 成功率、平均延迟、最大/最小值等
-- **趋势分析**: 网络性能变化趋势
-- **错误分类**: 智能分类不同类型的网络错误
+### Intelligent Analysis Features
+- **Dynamic Threshold Calculation**: Automatically calculate performance thresholds based on historical data
+- **Problem Period Identification**: Automatically identify network anomaly time periods
+- **Statistical Analysis**: Success rate, average latency, maximum/minimum values, etc.
+- **Trend Analysis**: Network performance change trends
+- **Error Classification**: Intelligent classification of different types of network errors
 
-### 报告格式
-- **纯文本格式**: 适合终端查看和日志记录
-- **Markdown 格式**: 适合文档生成和分享
+### Report Formats
+- **Plain Text Format**: Suitable for terminal viewing and logging
+- **Markdown Format**: Suitable for document generation and sharing
 
-## 系统要求
+## System Requirements
 
-### 基本要求
+### Basic Requirements
 - Python 3.6+
-- 网络连接
+- Network connection
 
-### 系统工具依赖
-- **ping**: 系统自带 (ICMP ping 监控)
-- **curl**: 系统自带或需安装 (HTTP/HTTPS 监控)
-- **nslookup**: 系统自带 (DNS 监控)
-- **nc (netcat)**: 系统自带或需安装 (UDP ping 监控)
+### System Tool Dependencies
+- **ping**: Built-in system tool (ICMP ping monitoring)
+- **curl**: Built-in or needs installation (HTTP/HTTPS monitoring)
+- **nslookup**: Built-in system tool (DNS monitoring)
+- **nc (netcat)**: Built-in or needs installation (UDP ping monitoring)
 
-### 支持的操作系统
+### Supported Operating Systems
 - macOS
-- Linux (Ubuntu, CentOS, Debian 等)
-- Windows (需要相应的命令行工具)
+- Linux (Ubuntu, CentOS, Debian, etc.)
+- Windows (requires corresponding command-line tools)
 
-## 快速开始
+## Quick Start
 
-1. **克隆或下载项目**
+1. **Clone or Download Project**
    ```bash
-   # 如果是 git 仓库
+   # If it's a git repository
    git clone <repository_url>
    cd ai_written_tools
    ```
 
-2. **选择监控工具**
+2. **Choose Monitoring Tool**
    ```bash
-   # ICMP Ping 监控
+   # ICMP Ping monitoring
    cd icmp_ping
    python3 monitor_ping.py google.com
    
-   # HTTP/HTTPS 监控
+   # HTTP/HTTPS monitoring
    cd curl_ping
    python3 monitor_curl.py https://github.com
    
-   # DNS 解析监控
+   # DNS resolution monitoring
    cd dns_lookup
    python3 monitor_dns.py --dns-server 8.8.8.8
    ```
 
-3. **分析监控结果**
+3. **Analyze Monitoring Results**
    ```bash
-   # 等待一段时间后，分析生成的日志
-   python3 analyze_*.py <日志文件名> --markdown
+   # After waiting for some time, analyze the generated logs
+   python3 analyze_*.py <log_file_name> --markdown
    ```
 
-## 使用场景
+## Use Cases
 
-### 网络故障排查
-- 使用 ICMP ping 检测基本连通性
-- 使用 HTTP 监控检测 Web 服务可用性
-- 使用 DNS 监控检测域名解析问题
+### Network Troubleshooting
+- Use ICMP ping to detect basic connectivity
+- Use HTTP monitoring to detect web service availability
+- Use DNS monitoring to detect domain resolution issues
 
-### 性能监控
-- 长期监控网络延迟变化
-- 监控 DNS 解析性能
-- 监控 Web 服务响应时间
+### Performance Monitoring
+- Long-term monitoring of network latency changes
+- Monitor DNS resolution performance
+- Monitor web service response times
 
-### 网络质量评估
-- 评估网络稳定性
-- 分析网络性能趋势
-- 生成网络质量报告
+### Network Quality Assessment
+- Evaluate network stability
+- Analyze network performance trends
+- Generate network quality reports
 
-## 高级配置
+## Advanced Configuration
 
-### 自定义监控参数
-大部分脚本支持以下通用参数：
-- `--interval`: 监控间隔（秒）
-- `--timeout`: 超时时间（秒）
-- `--output`: 自定义日志文件名
+### Custom Monitoring Parameters
+Most scripts support the following common parameters:
+- `--interval`: Monitoring interval (seconds)
+- `--timeout`: Timeout duration (seconds)
+- `--output`: Custom log file name
 
-### 环境变量
-某些脚本支持通过环境变量进行配置：
+### Environment Variables
+Some scripts support configuration through environment variables:
 ```bash
 export MONITOR_INTERVAL=30
 export MONITOR_TIMEOUT=10
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **权限问题**
-   - 某些系统可能需要管理员权限执行 ping 命令
-   - 解决方案: 使用 `sudo` 运行脚本
+1. **Permission Issues**
+   - Some systems may require administrator privileges to execute ping commands
+   - Solution: Run scripts with `sudo`
 
-2. **命令不存在**
-   - 确保系统安装了必要的网络工具 (ping, curl, nslookup, nc)
-   - macOS: 通常预装所有工具
-   - Linux: 可能需要安装 `iputils-ping`, `curl`, `netcat`
+2. **Command Not Found**
+   - Ensure the system has necessary network tools installed (ping, curl, nslookup, nc)
+   - macOS: Usually comes with all tools pre-installed
+   - Linux: May need to install `iputils-ping`, `curl`, `netcat`
 
-3. **网络防火墙**
-   - 某些网络环境可能阻止特定协议
-   - 解决方案: 检查防火墙设置或使用其他监控方式
+3. **Network Firewall**
+   - Some network environments may block specific protocols
+   - Solution: Check firewall settings or use alternative monitoring methods
 
 
-## 许可证
+## License
 
-本项目采用 MIT 许可证。
+This project is licensed under the MIT License.
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request 来改进这个项目。
+Welcome to submit Issues and Pull Requests to improve this project.
 
-**注意**: 这些工具主要用于网络诊断和监控，请合理使用，避免对目标服务器造成过大负载。
+**Note**: These tools are primarily for network diagnostics and monitoring. Please use them responsibly to avoid excessive load on target servers.
