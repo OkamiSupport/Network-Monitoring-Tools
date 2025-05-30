@@ -7,144 +7,144 @@ import time
 import re
 import logging
 import platform
-import signal # 用于更优雅地处理中断信号
-import urllib.request # <--- 新增：用于获取公网 IP
-import socket # <--- 新增：用于处理网络超时等错误
+import signal # Used to handle interrupt signals more gracefully
+import urllib.request # <--- Added: Used to get public IP
+import socket # <--- Added: Used to handle network timeout errors, etc.
 
-# --- 配置 ---
-PING_COUNT = 10          # 每次测量周期发送的 PING 包数量 (可以适当增加以获得更平滑的数据)
-INTERVAL_SECONDS = 5     # 测量间隔时间（秒）(缩短间隔以获得更接近“连续”的感觉)
-PING_TIMEOUT = 2         # 单个 ping 的超时时间（秒），用于 -W 或 -w 参数
-IP_FETCH_TIMEOUT = 5     # 获取公网 IP 的超时时间（秒）
-# --- 配置结束 ---
+# --- Configuration ---
+PING_COUNT = 10          # Number of PING packets sent per measurement cycle (can be appropriately increased for smoother data)
+INTERVAL_SECONDS = 5     # Measurement interval time (seconds) (shorten the interval to get a feeling closer to "continuous")
+PING_TIMEOUT = 2         # Timeout for a single ping (seconds), used for -W or -w parameters
+IP_FETCH_TIMEOUT = 5     # Timeout for fetching public IP (seconds)
+# --- Configuration End ---
 
-# 全局变量，用于信号处理
+# Global variable for signal handling
 keep_running = True
 
 def signal_handler(sig, frame):
-    """处理中断信号 (Ctrl+C)"""
+    """Handle interrupt signal (Ctrl+C)"""
     global keep_running
-    print("\n收到中断信号，正在停止监控...")
+    print("\nInterrupt signal received, stopping monitoring...")
     keep_running = False
 
 def get_public_ip():
-    """尝试从 api.ipify.org 获取公网 IP 地址"""
+    """Try to get the public IP address from api.ipify.org"""
     urls = ["https://api.ipify.org", "https://ipinfo.io/ip", "https://checkip.amazonaws.com"]
     for url in urls:
         try:
-            # 设置 User-Agent 避免被某些服务阻止
+            # Set User-Agent to avoid being blocked by some services
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=IP_FETCH_TIMEOUT) as response:
                 ip = response.read().decode('utf-8').strip()
-                # 简单验证一下是否是 IP 格式
+                # Simple verification of IP format
                 if re.match(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", ip):
                     return ip
                 else:
                     print(f"Warning: Fetched invalid IP format from {url}: {ip}")
-                    continue # 尝试下一个 URL
+                    continue # Try next URL
         except (urllib.error.URLError, socket.timeout, ConnectionResetError) as e:
             print(f"Warning: Could not fetch public IP from {url}: {e}")
         except Exception as e:
             print(f"Warning: An unexpected error occurred while fetching public IP from {url}: {e}")
-    # 如果所有 URL 都失败了
+    # If all URLs fail
     print("Warning: Failed to fetch public IP from all sources.")
-    return "N/A" # 返回 N/A 表示获取失败
+    return "N/A" # Return N/A to indicate failure to fetch
 
 def setup_logging(target_ip):
-    """配置日志记录器"""
+    """Configure logger"""
     log_filename = f"network_monitor_{target_ip.replace('.', '_')}.log"
     logger = logging.getLogger('NetworkMonitor')
     logger.setLevel(logging.INFO)
 
-    # 创建文件处理器
+    # Create file handler
     fh = logging.FileHandler(log_filename, encoding='utf-8')
     fh.setLevel(logging.INFO)
 
-    # 创建日志格式
+    # Create log format
     formatter = logging.Formatter('%(asctime)s | %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     fh.setFormatter(formatter)
 
-    # 添加处理器到记录器 (防止重复添加)
+    # Add handler to logger (prevent duplicate additions)
     if not logger.hasHandlers():
         logger.addHandler(fh)
-        # 如果也想在屏幕输出日志，取消下面两行的注释
+        # If you also want to output logs to the screen, uncomment the next two lines
         # ch = logging.StreamHandler()
         # ch.setFormatter(formatter)
         # logger.addHandler(ch)
 
-    # 检查日志文件是否为空，如果为空则写入头部信息
+    # Check if the log file is empty, if so, write header information
     try:
-        # 尝试读取文件大小判断是否为空
+        # Try to read the file size to determine if it is empty
         with open(log_filename, 'r', encoding='utf-8') as f:
             f.seek(0, 2) # Go to end of file
             if f.tell() == 0: # Check if file is empty
                  raise FileNotFoundError # Treat empty file as new
-            # 如果文件非空，假设头部已存在，不再写入
+            # If the file is not empty, assume the header already exists and do not write it again
     except (FileNotFoundError, IOError):
-         # 文件不存在或为空，写入头部信息
-         source_ip = get_public_ip() # <--- 在写入头部前获取公网 IP
-         logger.info(f"=== 网络监控日志 ===")
-         logger.info(f"目标 IP: {target_ip}")
-         logger.info(f"服务器源公网 IP: {source_ip}") # <--- 新增行：显示源公网 IP
-         logger.info(f"监控启动于: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-         logger.info(f"每次测量 PING 包数: {PING_COUNT}")
-         logger.info(f"测量间隔: {INTERVAL_SECONDS} 秒")
-         logger.info(f"Ping 超时: {PING_TIMEOUT} 秒")
+         # File does not exist or is empty, write header information
+         source_ip = get_public_ip() # <--- Get public IP before writing header
+         logger.info(f"=== Network Monitoring Log ===")
+         logger.info(f"Target IP: {target_ip}")
+         logger.info(f"Server Source Public IP: {source_ip}") # <--- New line: Display source public IP
+         logger.info(f"Monitoring started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+         logger.info(f"PING packets per measurement: {PING_COUNT}")
+         logger.info(f"Measurement interval: {INTERVAL_SECONDS} seconds")
+         logger.info(f"Ping timeout: {PING_TIMEOUT} seconds")
          logger.info("-" * 80)
-         logger.info("发送 | 接收 | 丢包率(%) | Min RTT(ms) | Avg RTT(ms) | Max RTT(ms) | StdDev RTT(ms)")
+         logger.info("Sent | Received | Loss(%) | Min RTT(ms) | Avg RTT(ms) | Max RTT(ms) | StdDev RTT(ms)")
          logger.info("-" * 80)
 
     return logger
 
 def parse_ping_output(output, ping_count):
-    """解析 ping 命令的输出 (适配 Linux 和 macOS/Windows 的常见格式)"""
+    """Parse the output of the ping command (compatible with common formats for Linux and macOS/Windows)"""
     loss_percent = "ERR"
     rtt_min, rtt_avg, rtt_max, rtt_mdev = "N/A", "N/A", "N/A", "N/A"
     packets_transmitted, packets_received = "ERR", "ERR"
 
-    # 解析丢包率和包数量 (多种格式适配)
+    # Parse packet loss rate and packet count (multiple format adaptation)
     loss_match = re.search(r"(\d+)\s+packets transmitted,\s*(\d+)\s+received.*,\s+([\d.]+)%\s+packet loss", output, re.IGNORECASE | re.DOTALL)
-    if not loss_match: # 尝试另一种常见格式 (例如 Windows 中文)
-         loss_match = re.search(r"数据包: 已发送 = (\d+)，已接收 = (\d+)，丢失 = \d+ \((.*)%\s+丢失\)", output, re.IGNORECASE | re.DOTALL)
-    if not loss_match: # 尝试 macOS 格式 (可能没有逗号)
+    if not loss_match: # Try another common format (e.g., Windows Chinese)
+         loss_match = re.search(r"Packets: Sent = (\d+), Received = (\d+), Lost = \d+ \((.*)%\s+loss\)", output, re.IGNORECASE | re.DOTALL)
+    if not loss_match: # Try macOS format (may not have a comma)
         loss_match = re.search(r"(\d+)\s+packets transmitted,\s*(\d+)\s+packets received,\s*([\d.]+)%\s+packet loss", output, re.IGNORECASE | re.DOTALL)
-    if not loss_match: # 另一种 Linux 格式 (e.g. busybox ping)
+    if not loss_match: # Another Linux format (e.g., busybox ping)
         loss_match = re.search(r"(\d+) packets transmitted, (\d+) packets received, ([\d.]+)% packet loss", output, re.IGNORECASE | re.DOTALL)
 
 
     if loss_match:
         packets_transmitted = loss_match.group(1)
         packets_received = loss_match.group(2)
-        loss_percent = loss_match.group(3).strip() # 去掉可能的尾随空格
+        loss_percent = loss_match.group(3).strip() # Remove possible trailing spaces
     else:
-        # 如果完全没收到，可能只有 100% loss 的提示
-        if "100% packet loss" in output or "100% 丢失" in output:
+        # If nothing is received at all, there may only be a 100% loss prompt
+        if "100% packet loss" in output or "100% loss" in output:
              loss_percent = "100"
-             packets_transmitted = str(ping_count) # 假设尝试发送了这么多
+             packets_transmitted = str(ping_count) # Assume this many were attempted to be sent
              packets_received = "0"
-        elif " 0% packet loss" in output or "0% 丢失" in output:
-             # 即使0%丢包，也要尝试提取发送/接收数量
+        elif " 0% packet loss" in output or "0% loss" in output:
+             # Even with 0% packet loss, try to extract sent/received counts
              tx_rx_match = re.search(r"(\d+)\s+packets transmitted,\s*(\d+)\s+received", output, re.IGNORECASE | re.DOTALL)
              if not tx_rx_match:
-                 tx_rx_match = re.search(r"数据包: 已发送 = (\d+)，已接收 = (\d+)", output, re.IGNORECASE | re.DOTALL)
+                 tx_rx_match = re.search(r"Packets: Sent = (\d+), Received = (\d+)", output, re.IGNORECASE | re.DOTALL)
              if tx_rx_match:
                  packets_transmitted = tx_rx_match.group(1)
                  packets_received = tx_rx_match.group(2)
                  loss_percent = "0"
-             else: # 如果连发送接收都找不到，但确实是0%丢包
+             else: # If even sent/received cannot be found, but it is indeed 0% packet loss
                  packets_transmitted = str(ping_count)
                  packets_received = str(ping_count)
                  loss_percent = "0"
 
-    # 解析 RTT (min/avg/max/stddev or mdev)
+    # Parse RTT (min/avg/max/stddev or mdev)
     rtt_match = re.search(r"min/avg/max/(?:stddev|mdev)\s*=\s*([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+)\s*ms", output, re.IGNORECASE | re.DOTALL)
-    if not rtt_match: # 尝试 Windows 格式 (最短/最长/平均)
-        rtt_match_win = re.search(r"最短\s*=\s*(\d+)ms.*最长\s*=\s*(\d+)ms.*平均\s*=\s*(\d+)ms", output, re.IGNORECASE | re.DOTALL)
+    if not rtt_match: # Try Windows format (min/max/avg)
+        rtt_match_win = re.search(r"Minimum\s*=\s*(\d+)ms.*Maximum\s*=\s*(\d+)ms.*Average\s*=\s*(\d+)ms", output, re.IGNORECASE | re.DOTALL)
         if rtt_match_win:
              rtt_min = rtt_match_win.group(1)
              rtt_max = rtt_match_win.group(2)
              rtt_avg = rtt_match_win.group(3)
-             rtt_mdev = "N/A" # Windows ping 不直接提供标准差
+             rtt_mdev = "N/A" # Windows ping does not directly provide standard deviation
 
     if rtt_match:
         rtt_min = rtt_match.group(1)
@@ -152,28 +152,28 @@ def parse_ping_output(output, ping_count):
         rtt_max = rtt_match.group(3)
         rtt_mdev = rtt_match.group(4)
 
-    # 如果无法解析任何内容，且输出不为空，返回错误标记
+    # If nothing can be parsed and the output is not empty, return an error flag
     if loss_percent == "ERR" and packets_transmitted == "ERR" and output and "unknown host" not in output.lower() and "unreachable" not in output.lower():
         return "ERR", "ERR", "ERR", "N/A", "N/A", "N/A", "N/A", True # Return parse_error = True
 
-    # 处理完全无法访问的情况
+    # Handle cases of complete inaccessibility
     if "unknown host" in output.lower() or "host unreachable" in output.lower() or "request timed out" in output.lower() and packets_transmitted == "ERR":
         packets_transmitted = str(ping_count)
         packets_received = "0"
         loss_percent = "100"
         rtt_min, rtt_avg, rtt_max, rtt_mdev = "N/A", "N/A", "N/A", "N/A"
 
-    # 确保数字格式统一
+    # Ensure uniform number format
     try:
         if loss_percent != "ERR" and loss_percent != "N/A":
-            loss_percent = "{:.1f}".format(float(loss_percent)) # 保留一位小数
+            loss_percent = "{:.1f}".format(float(loss_percent)) # Keep one decimal place
     except ValueError:
-        pass # 如果转换失败，保持原样
+        pass # If conversion fails, keep original
 
     return packets_transmitted, packets_received, loss_percent, rtt_min, rtt_avg, rtt_max, rtt_mdev, False # Return parse_error = False
 
 def run_ping(target_ip, count, timeout):
-    """执行 ping 命令并返回其输出和是否有执行错误"""
+    """Execute ping command and return its output and whether there was an execution error"""
     system = platform.system().lower()
     if system == "windows":
         # Windows ping: -n count, -w timeout (milliseconds)
@@ -183,16 +183,16 @@ def run_ping(target_ip, count, timeout):
         command = ['ping', '-c', str(count), '-W', str(timeout), target_ip]
 
     try:
-        # 设置 Popen 的 locale 为 C 使得输出为英文，更容易解析
+        # Set Popen's locale to C to make the output English, which is easier to parse
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='ignore', env={'LANG': 'C'})
-        # 设置一个合理的总超时时间，防止 ping 命令本身卡死
-        # 例如，发送 count 个包，每个最多等 timeout 秒，再加上一些额外时间
-        communicate_timeout = (count * timeout) + 5 # 增加 5 秒的 buffer
+        # Set a reasonable total timeout to prevent the ping command itself from freezing
+        # For example, send count packets, wait at most timeout seconds for each, plus some extra time
+        communicate_timeout = (count * timeout) + 5 # Add a 5-second buffer
         stdout, stderr = process.communicate(timeout=communicate_timeout)
 
-        # 退出码 > 1 通常表示严重错误 (e.g., unknown host, network unreachable)
-        # 退出码 1 在 Linux/macOS 上可能表示有丢包但有响应，这不算执行错误
-        # Windows 退出码 0 表示成功，非 0 表示失败
+        # Exit code > 1 usually indicates a serious error (e.g., unknown host, network unreachable)
+        # Exit code 1 on Linux/macOS may indicate packet loss but with a response, this is not considered an execution error
+        # Windows exit code 0 means success, non-zero means failure
         is_error = False
         if system == "windows":
             if process.returncode != 0:
@@ -202,22 +202,22 @@ def run_ping(target_ip, count, timeout):
                  is_error = True
 
         if is_error:
-             # 优先使用 stderr 中的信息，如果为空则用 stdout
+             # Prioritize information in stderr, if empty, use stdout
              error_message = stderr.strip() if stderr.strip() else stdout.strip()
              if not error_message: error_message = f"Ping command failed with return code {process.returncode}"
-             # 对于 'unknown host' 或 'unreachable'，输出可能在 stdout
+             # For 'unknown host' or 'unreachable', the output may be in stdout
              if "unknown host" in stdout.lower() or "host unreachable" in stdout.lower():
                  error_message = stdout.strip()
-             return f"Execution Error: {error_message}", True # 返回执行错误
+             return f"Execution Error: {error_message}", True # Return execution error
 
-        return stdout + stderr, False # 合并 stdout 和 stderr, 返回无执行错误
+        return stdout + stderr, False # Merge stdout and stderr, return no execution error
     except subprocess.TimeoutExpired:
-        # 如果 communicate 超时，强制终止进程
+        # If communicate times out, forcibly terminate the process
         try:
             process.kill()
-            process.wait() # 等待进程完全终止
+            process.wait() # Wait for the process to terminate completely
         except OSError:
-            pass # 进程可能已经结束
+            pass # Process may have already ended
         return f"Execution Error: Ping command timed out after {communicate_timeout} seconds.", True
     except FileNotFoundError:
         return "Execution Error: 'ping' command not found. Please install it.", True
@@ -228,90 +228,90 @@ def run_ping(target_ip, count, timeout):
 def main():
     global keep_running
     if len(sys.argv) < 2:
-        print(f"用法: {sys.argv[0]} <目标 IP 地址或域名>")
-        print("脚本将持续运行，按 Ctrl+C 停止。")
+        print(f"Usage: {sys.argv[0]} <Target IP Address or Domain Name>")
+        print("The script will run continuously. Press Ctrl+C to stop.")
         sys.exit(1)
 
     target_ip_or_domain = sys.argv[1]
-    target_ip = target_ip_or_domain # 默认使用用户输入
+    target_ip = target_ip_or_domain # Default to user input
 
-    # 尝试解析域名获取 IP (如果输入的是域名)，日志文件名仍使用域名
+    # Try to resolve the domain name to get the IP (if the input is a domain name), the log file name still uses the domain name
     try:
         target_ip = socket.gethostbyname(target_ip_or_domain)
-        print(f"将监控域名: {target_ip_or_domain} (解析为 IP: {target_ip})")
+        print(f"Will monitor domain: {target_ip_or_domain} (resolved to IP: {target_ip})")
     except socket.gaierror:
-        # 如果解析失败，检查是否是 IP 格式
+        # If resolution fails, check if it is an IP format
         ip_pattern = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
         if not ip_pattern.match(target_ip_or_domain):
-            print(f"错误: 无效的目标 IP 地址或无法解析的域名 '{target_ip_or_domain}'")
+            print(f"Error: Invalid target IP address or unresolvable domain name '{target_ip_or_domain}'")
             sys.exit(1)
         else:
-            print(f"将监控 IP: {target_ip}")
+            print(f"Will monitor IP: {target_ip}")
     except Exception as e:
-         print(f"解析目标时发生错误 '{target_ip_or_domain}': {e}")
+         print(f"Error resolving target '{target_ip_or_domain}': {e}")
          sys.exit(1)
 
-    # 使用原始输入（可能是域名）来生成日志文件名，避免特殊字符问题
-    log_file_prefix = re.sub(r'[^\w\-.]', '_', target_ip_or_domain) # 替换掉不适合文件名的字符
-    logger = setup_logging(log_file_prefix) # 使用处理过的名称设置日志
+    # Use the original input (possibly a domain name) to generate the log file name to avoid special character issues
+    log_file_prefix = re.sub(r'[^\w\-.]', '_', target_ip_or_domain) # Replace characters unsuitable for file names
+    logger = setup_logging(log_file_prefix) # Set up logging using the processed name
 
-    print(f"开始持续监控 {target_ip_or_domain} (IP: {target_ip}) ...")
-    print(f"日志将记录在: network_monitor_{log_file_prefix}.log")
-    print("按 Ctrl+C 停止监控.")
+    print(f"Starting continuous monitoring of {target_ip_or_domain} (IP: {target_ip}) ...")
+    print(f"Logs will be recorded in: network_monitor_{log_file_prefix}.log")
+    print("Press Ctrl+C to stop monitoring.")
 
-    # 注册信号处理函数
-    signal.signal(signal.SIGINT, signal_handler)  # 处理 Ctrl+C
-    signal.signal(signal.SIGTERM, signal_handler) # 处理 kill 命令
+    # Register signal handler function
+    signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
+    signal.signal(signal.SIGTERM, signal_handler) # Handle kill command
 
     while keep_running:
-        start_time = time.time() # 记录开始时间
+        start_time = time.time() # Record start time
 
-        # 使用解析后的 IP 地址进行 ping
+        # Use the resolved IP address for pinging
         ping_output, execution_error = run_ping(target_ip, PING_COUNT, PING_TIMEOUT)
 
         if execution_error:
-            # 记录 ping 执行错误，确保时间戳正确
+            # Log ping execution error, ensure timestamp is correct
             error_message = f"ERR  | ERR  | ERR       | N/A         | N/A         | N/A         | N/A         | {ping_output}"
             logger.error(error_message)
         else:
             tx, rx, loss, rtt_min, rtt_avg, rtt_max, rtt_mdev, parse_error = parse_ping_output(ping_output, PING_COUNT)
 
             if parse_error:
-                 warning_message = f"无法解析 Ping 输出. Raw output (partial): {ping_output[:250].replace(chr(10),' ')}..."
+                 warning_message = f"Could not parse Ping output. Raw output (partial): {ping_output[:250].replace(chr(10),' ')}..."
                  logger.warning(warning_message)
                  log_message = f"PARSE_ERR | PARSE_ERR | ERR | N/A | N/A | N/A | N/A"
             else:
-                # 格式化日志消息，增加对齐
+                # Format log message, add alignment
                 log_message = (
                     f"{str(tx):<4} | "
                     f"{str(rx):<4} | "
-                    f"{str(loss):>9} | " # 右对齐丢包率
-                    f"{str(rtt_min):>11} | " # 右对齐RTT
+                    f"{str(loss):>9} | " # Right-align packet loss rate
+                    f"{str(rtt_min):>11} | " # Right-align RTT
                     f"{str(rtt_avg):>11} | "
                     f"{str(rtt_max):>11} | "
                     f"{str(rtt_mdev):>14}"
                 )
-            # 正常记录 info 级别的日志
+            # Log info level logs normally
             logger.info(log_message)
 
-        # 计算本次循环花费的时间
+        # Calculate the time spent in this loop
         elapsed_time = time.time() - start_time
-        # 计算需要等待的时间
+        # Calculate the time to wait
         wait_time = max(0, INTERVAL_SECONDS - elapsed_time)
 
-        # 分段 sleep 以便能及时响应中断信号
+        # Segmented sleep to respond to interrupt signals in time
         sleep_end_time = time.time() + wait_time
         while keep_running and time.time() < sleep_end_time:
-            # 检查剩余时间，避免 sleep 过长
+            # Check remaining time to avoid sleeping too long
             remaining_wait = sleep_end_time - time.time()
-            sleep_interval = min(0.5, remaining_wait) # 最多睡 0.5 秒检查一次
+            sleep_interval = min(0.5, remaining_wait) # Sleep for a maximum of 0.5 seconds to check once
             if sleep_interval > 0:
                 time.sleep(sleep_interval)
 
-    # 循环结束后执行清理或记录结束信息
-    print("监控已停止.")
-    logger.info(f"监控停止于: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    logging.shutdown() # 关闭日志处理器
+    # Execute cleanup or record end information after the loop ends
+    print("Monitoring stopped.")
+    logger.info(f"Monitoring stopped at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logging.shutdown() # Close log handler
 
 if __name__ == "__main__":
     main()

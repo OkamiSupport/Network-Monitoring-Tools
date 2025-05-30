@@ -9,18 +9,18 @@ import socket
 import time
 import os
 
-# --- 可配置阈值 ---
-HIGH_RESPONSE_TIME_THRESHOLD = 2000.0  # 高响应时间阈值 (ms)
-HIGH_CONNECT_TIME_THRESHOLD = 1000.0   # 高连接时间阈值 (ms)
-HIGH_DNS_TIME_THRESHOLD = 500.0        # 高DNS解析时间阈值 (ms)
-ERROR_RATE_THRESHOLD = 5.0             # 错误率阈值 (%)
+# --- Configurable Thresholds ---
+HIGH_RESPONSE_TIME_THRESHOLD = 2000.0  # High response time threshold (ms)
+HIGH_CONNECT_TIME_THRESHOLD = 1000.0   # High connect time threshold (ms)
+HIGH_DNS_TIME_THRESHOLD = 500.0        # High DNS resolution time threshold (ms)
+ERROR_RATE_THRESHOLD = 5.0             # Error rate threshold (%)
 
-# --- 动态基线计算参数 ---
+# --- Dynamic Baseline Calculation Parameters ---
 MAX_BASELINE_CANDIDATES = 100
 MIN_BASELINE_SAMPLES = 20
-STABLE_SUCCESS_THRESHOLD = 95.0  # 成功率阈值
+STABLE_SUCCESS_THRESHOLD = 95.0  # Success rate threshold
 
-# --- 动态阈值计算参数 ---
+# --- Dynamic Threshold Calculation Parameters ---
 DYNAMIC_RESPONSE_TIME_FACTOR = 2.0
 DYNAMIC_RESPONSE_TIME_OFFSET = 100.0
 MIN_DYNAMIC_RESPONSE_TIME_THRESHOLD = 500.0
@@ -29,13 +29,13 @@ DYNAMIC_CONNECT_TIME_FACTOR = 2.0
 DYNAMIC_CONNECT_TIME_OFFSET = 50.0
 MIN_DYNAMIC_CONNECT_TIME_THRESHOLD = 200.0
 
-# --- 获取系统信息的函数 ---
+# --- Functions to Get System Information ---
 def get_hostname():
     try:
         return socket.gethostname()
     except socket.error as e:
-        print(f"警告: 无法获取主机名: {e}", file=sys.stderr)
-        return "未知 (无法获取)"
+        print(f"Warning: Unable to get hostname: {e}", file=sys.stderr)
+        return "Unknown (Unable to fetch)"
 
 def get_timezone_info():
     try:
@@ -62,12 +62,12 @@ def get_timezone_info():
         else:
             return offset_str
     except Exception as e:
-        print(f"警告: 无法获取时区信息: {e}", file=sys.stderr)
-        return "未知 (无法获取)"
+        print(f"Warning: Unable to get timezone information: {e}", file=sys.stderr)
+        return "Unknown (Unable to fetch)"
 
-# --- 解析日志行的函数 ---
+# --- Function to Parse Log Lines ---
 def parse_log_line(line):
-    # 解析格式: DNS解析(ms) | 解析IP | HTTP状态码 | 总耗时(ms) | 连接时间(ms) | 传输时间(ms) | 响应大小(B) | 状态
+    # Parse format: DNS Resolution(ms) | Resolved IP | HTTP Status Code | Total Time(ms) | Connect Time(ms) | Transfer Time(ms) | Response Size(B) | Status
     pattern = re.compile(
         r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\|\s*"
         r"([\d.]+|N/A)\s*\|\s*"
@@ -85,7 +85,7 @@ def parse_log_line(line):
         try:
             timestamp = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
             
-            # 解析各个字段
+            # Parse individual fields
             dns_time = match.group(2).strip()
             resolved_ip = match.group(3).strip()
             http_code = match.group(4).strip()
@@ -107,16 +107,16 @@ def parse_log_line(line):
                 "status": status
             }
         except (ValueError, IndexError) as e:
-            print(f"警告: 解析数据行时出错: {line.strip()} - {e}", file=sys.stderr)
+            print(f"Warning: Error parsing data line: {line.strip()} - {e}", file=sys.stderr)
             return None
     return None
 
 def is_success_status(status):
-    """判断状态是否为成功"""
+    """Check if status indicates success"""
     return status == "SUCCESS"
 
 def is_numeric(value):
-    """检查值是否为数字"""
+    """Check if value is numeric"""
     if value == "N/A":
         return False
     try:
@@ -126,7 +126,7 @@ def is_numeric(value):
         return False
 
 def safe_float(value, default=0.0):
-    """安全转换为浮点数"""
+    """Safely convert to float"""
     if not is_numeric(value):
         return default
     try:
@@ -135,18 +135,18 @@ def safe_float(value, default=0.0):
         return default
 
 def analyze_curl_log(log_file_path, markdown_format=False):
-    """分析 curl 日志文件并生成报告内容"""
+    """Analyze curl log file and generate report content"""
     
     analysis_hostname = get_hostname()
     analysis_timezone = get_timezone_info()
     
     metadata = {
-        "target_url": "未知",
-        "source_public_ip": "未知 (未在日志中找到)",
-        "start_time_str": "未知",
-        "interval_seconds": "未知",
-        "curl_timeout": "未知",
-        "user_agent": "未知",
+        "target_url": "Unknown",
+        "source_public_ip": "Unknown (Not found in log)",
+        "start_time_str": "Unknown",
+        "interval_seconds": "Unknown",
+        "curl_timeout": "Unknown",
+        "user_agent": "Unknown",
         "analysis_hostname": analysis_hostname,
         "analysis_timezone": analysis_timezone,
     }
@@ -163,28 +163,28 @@ def analyze_curl_log(log_file_path, markdown_format=False):
                     continue
                 
                 if not header_parsed:
-                    # 解析头部信息
-                    match_source_ip = re.match(r".*服务器源公网 IP:\s*(.*)", line)
+                    # Parse header information
+                    match_source_ip = re.match(r".*Server Source Public IP:\s*(.*)", line)
                     if match_source_ip:
                         metadata["source_public_ip"] = match_source_ip.group(1).strip()
                         continue
                     
-                    match_url = re.match(r".*目标 URL:\s*(.*)", line)
+                    match_url = re.match(r".*Target URL:\s*(.*)", line)
                     if match_url:
                         metadata["target_url"] = match_url.group(1).strip()
                         continue
                     
-                    match_start = re.match(r".*监控启动于:\s*(.*)", line)
+                    match_start = re.match(r".*Monitoring Started At:\s*(.*)", line)
                     if match_start:
                         metadata["start_time_str"] = match_start.group(1).strip()
                         continue
                     
-                    match_interval = re.match(r".*测量间隔:\s*(\d+)\s*秒", line)
+                    match_interval = re.match(r".*Measurement Interval:\s*(\d+)\s*seconds", line)
                     if match_interval:
                         metadata["interval_seconds"] = match_interval.group(1).strip()
                         continue
                     
-                    match_timeout = re.match(r".*CURL 超时:\s*(\d+)\s*秒", line)
+                    match_timeout = re.match(r".*CURL Timeout:\s*(\d+)\s*seconds", line)
                     if match_timeout:
                         metadata["curl_timeout"] = match_timeout.group(1).strip()
                         continue
@@ -201,7 +201,7 @@ def analyze_curl_log(log_file_path, markdown_format=False):
                             data_section_started = True
                         continue
                     
-                    if "DNS解析(ms)" in line:
+                    if "DNS Resolution(ms)" in line:
                         data_section_started = True
                         header_parsed = True
                         continue
@@ -212,20 +212,20 @@ def analyze_curl_log(log_file_path, markdown_format=False):
                         data_records.append(record)
     
     except FileNotFoundError:
-        return f"错误: 文件未找到: {log_file_path}"
+        return f"Error: File not found: {log_file_path}"
     except Exception as e:
-        return f"错误: 读取或解析文件时发生异常: {e}"
+        return f"Error: Exception occurred while reading or parsing file: {e}"
     
     if not data_records:
-        return f"错误: 在文件 {log_file_path} 中未找到有效的数据记录。"
+        return f"Error: No valid data records found in file {log_file_path}."
     
-    # --- 分析逻辑 ---
+    # --- Analysis Logic ---
     total_requests = len(data_records)
     first_timestamp = data_records[0]['timestamp']
     last_timestamp = data_records[-1]['timestamp']
     duration = last_timestamp - first_timestamp
     
-    # 统计成功和失败
+    # Count successes and failures
     success_records = [r for r in data_records if is_success_status(r['status'])]
     error_records = [r for r in data_records if not is_success_status(r['status'])]
     
@@ -234,7 +234,7 @@ def analyze_curl_log(log_file_path, markdown_format=False):
     success_rate = (success_count / total_requests) * 100.0 if total_requests > 0 else 0.0
     error_rate = (error_count / total_requests) * 100.0 if total_requests > 0 else 0.0
     
-    # 计算时间统计（仅成功的请求）
+    # Calculate time statistics (successful requests only)
     if success_records:
         total_times = [safe_float(r['total_time']) for r in success_records if is_numeric(r['total_time'])]
         connect_times = [safe_float(r['connect_time']) for r in success_records if is_numeric(r['connect_time'])]
@@ -250,7 +250,7 @@ def analyze_curl_log(log_file_path, markdown_format=False):
         avg_total_time = min_total_time = max_total_time = 0.0
         avg_connect_time = avg_dns_time = 0.0
     
-    # 动态阈值计算
+    # Dynamic threshold calculation
     baseline_response_time = None
     baseline_connect_time = None
     dynamic_thresholds_calculated = False
@@ -278,16 +278,16 @@ def analyze_curl_log(log_file_path, markdown_format=False):
                 )
             else:
                 dynamic_thresholds_calculated = False
-                baseline_fallback_reason = "基线数据中缺少有效的时间数据"
+                baseline_fallback_reason = "Missing valid time data in baseline"
         except statistics.StatisticsError as e:
             dynamic_thresholds_calculated = False
-            baseline_fallback_reason = f"基线统计计算错误: {e}"
+            baseline_fallback_reason = f"Baseline statistics calculation error: {e}"
     else:
         dynamic_thresholds_calculated = False
         if len(data_records) < MIN_BASELINE_SAMPLES:
-            baseline_fallback_reason = f"日志数据不足 (少于 {MIN_BASELINE_SAMPLES} 条)"
+            baseline_fallback_reason = f"Insufficient log data (less than {MIN_BASELINE_SAMPLES} records)"
         else:
-            baseline_fallback_reason = f"日志初始 {MAX_BASELINE_CANDIDATES} 条记录中成功样本不足 (< {MIN_BASELINE_SAMPLES} 条)"
+            baseline_fallback_reason = f"Insufficient successful samples in the initial {MAX_BASELINE_CANDIDATES} log records (< {MIN_BASELINE_SAMPLES} records)"
     
     if not dynamic_thresholds_calculated:
         current_response_time_threshold = HIGH_RESPONSE_TIME_THRESHOLD
@@ -296,7 +296,7 @@ def analyze_curl_log(log_file_path, markdown_format=False):
     current_dns_time_threshold = HIGH_DNS_TIME_THRESHOLD
     current_error_rate_threshold = ERROR_RATE_THRESHOLD
     
-    # 识别问题时段
+    # Identify problematic periods
     slow_response_periods = []
     slow_connect_periods = []
     slow_dns_periods = []
@@ -305,27 +305,27 @@ def analyze_curl_log(log_file_path, markdown_format=False):
     for r in data_records:
         ts = r['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         
-        # 检查响应时间
+        # Check response time
         if is_numeric(r['total_time']) and safe_float(r['total_time']) > current_response_time_threshold:
-            slow_response_periods.append(f"{ts} (响应时间: {r['total_time']}ms)")
+            slow_response_periods.append(f"{ts} (Response Time: {r['total_time']}ms)")
         
-        # 检查连接时间
+        # Check connect time
         if is_numeric(r['connect_time']) and safe_float(r['connect_time']) > current_connect_time_threshold:
-            slow_connect_periods.append(f"{ts} (连接时间: {r['connect_time']}ms)")
+            slow_connect_periods.append(f"{ts} (Connect Time: {r['connect_time']}ms)")
         
-        # 检查DNS时间
+        # Check DNS time
         if is_numeric(r['dns_time']) and safe_float(r['dns_time']) > current_dns_time_threshold:
-            slow_dns_periods.append(f"{ts} (DNS时间: {r['dns_time']}ms)")
+            slow_dns_periods.append(f"{ts} (DNS Time: {r['dns_time']}ms)")
         
-        # 检查错误
+        # Check errors
         if not is_success_status(r['status']):
-            error_periods.append(f"{ts} (状态: {r['status']})")
+            error_periods.append(f"{ts} (Status: {r['status']})")
     
-    # --- 生成报告内容 ---
+    # --- Generate Report Content ---
     report = []
     
     if markdown_format:
-        # Markdown 报告
+        # Markdown Report
         sep_line = "---"
         title_prefix = "# "
         section_prefix = "## "
@@ -334,218 +334,218 @@ def analyze_curl_log(log_file_path, markdown_format=False):
         code_wrapper = "`"
         bold_wrapper = "**"
         
-        report.append(f"{title_prefix}CURL 日志分析报告: {code_wrapper}{metadata['target_url']}{code_wrapper}")
+        report.append(f"{title_prefix}CURL Log Analysis Report: {code_wrapper}{metadata['target_url']}{code_wrapper}")
         report.append(sep_line)
         
-        report.append(f"{section_prefix}分析环境与监控配置")
-        report.append(f"{list_item}{bold_wrapper}源公网 IP (来自日志):{bold_wrapper} {code_wrapper}{metadata['source_public_ip']}{code_wrapper}")
-        report.append(f"{list_item}{bold_wrapper}目标 URL:{bold_wrapper} {code_wrapper}{metadata['target_url']}{code_wrapper}")
-        report.append(f"{list_item}日志文件: {code_wrapper}{os.path.basename(log_file_path)}{code_wrapper}")
-        report.append(f"{list_item}监控开始 (日志记录): {metadata['start_time_str']}")
-        report.append(f"{list_item}分析数据范围: {code_wrapper}{first_timestamp}{code_wrapper} 至 {code_wrapper}{last_timestamp}{code_wrapper}")
-        report.append(f"{list_item}总持续时间: {duration}")
-        report.append(f"{list_item}总请求次数: {total_requests}")
-        report.append(f"{list_item}测量间隔: {metadata['interval_seconds']} 秒")
-        report.append(f"{list_item}CURL 超时: {metadata['curl_timeout']} 秒")
+        report.append(f"{section_prefix}Analysis Environment and Monitoring Configuration")
+        report.append(f"{list_item}{bold_wrapper}Source Public IP (from log):{bold_wrapper} {code_wrapper}{metadata['source_public_ip']}{code_wrapper}")
+        report.append(f"{list_item}{bold_wrapper}Target URL:{bold_wrapper} {code_wrapper}{metadata['target_url']}{code_wrapper}")
+        report.append(f"{list_item}Log File: {code_wrapper}{os.path.basename(log_file_path)}{code_wrapper}")
+        report.append(f"{list_item}Monitoring Start (log record): {metadata['start_time_str']}")
+        report.append(f"{list_item}Analyzed Data Range: {code_wrapper}{first_timestamp}{code_wrapper} to {code_wrapper}{last_timestamp}{code_wrapper}")
+        report.append(f"{list_item}Total Duration: {duration}")
+        report.append(f"{list_item}Total Requests: {total_requests}")
+        report.append(f"{list_item}Measurement Interval: {metadata['interval_seconds']} seconds")
+        report.append(f"{list_item}CURL Timeout: {metadata['curl_timeout']} seconds")
         report.append(f"{list_item}User-Agent: {metadata['user_agent']}")
         report.append(f"{list_item}分析脚本主机名: {code_wrapper}{metadata['analysis_hostname']}{code_wrapper}")
-        report.append(f"{list_item}分析脚本时区: {metadata['analysis_timezone']}")
+        report.append(f"{list_item}Analysis Script Timezone: {metadata['analysis_timezone']}")
         report.append("")
         
-        report.append(f"{section_prefix}整体统计")
-        report.append(f"{list_item}总请求数: {total_requests}")
-        report.append(f"{list_item}成功请求数: {success_count}")
-        report.append(f"{list_item}失败请求数: {error_count}")
-        report.append(f"{list_item}成功率: {bold_wrapper}{success_rate:.2f}%{bold_wrapper}")
-        report.append(f"{list_item}错误率: {bold_wrapper}{error_rate:.2f}%{bold_wrapper}")
-        report.append(f"{list_item}平均响应时间: {code_wrapper}{avg_total_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}最小响应时间: {code_wrapper}{min_total_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}最大响应时间: {code_wrapper}{max_total_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}平均连接时间: {code_wrapper}{avg_connect_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}平均DNS解析时间: {code_wrapper}{avg_dns_time:.1f} ms{code_wrapper}")
+        report.append(f"{section_prefix}Overall Statistics")
+        report.append(f"{list_item}Total Requests: {total_requests}")
+        report.append(f"{list_item}Successful Requests: {success_count}")
+        report.append(f"{list_item}Failed Requests: {error_count}")
+        report.append(f"{list_item}Success Rate: {bold_wrapper}{success_rate:.2f}%{bold_wrapper}")
+        report.append(f"{list_item}Error Rate: {bold_wrapper}{error_rate:.2f}%{bold_wrapper}")
+        report.append(f"{list_item}Average Response Time: {code_wrapper}{avg_total_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Minimum Response Time: {code_wrapper}{min_total_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Maximum Response Time: {code_wrapper}{max_total_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Average Connect Time: {code_wrapper}{avg_connect_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Average DNS Resolution Time: {code_wrapper}{avg_dns_time:.1f} ms{code_wrapper}")
         report.append("")
         
-        report.append(f"{section_prefix}分析阈值")
+        report.append(f"{section_prefix}Analysis Thresholds")
         if dynamic_thresholds_calculated:
-            report.append(f"{list_item}使用 {bold_wrapper}动态阈值{bold_wrapper} (基于日志初始数据计算):")
-            report.append(f"    {list_item}基线响应时间: {code_wrapper}{baseline_response_time:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}基线连接时间: {code_wrapper}{baseline_connect_time:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高响应时间阈值: > {code_wrapper}{current_response_time_threshold:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高连接时间阈值: > {code_wrapper}{current_connect_time_threshold:.1f} ms{code_wrapper}")
+            report.append(f"{list_item}Using {bold_wrapper}Dynamic Thresholds{bold_wrapper} (calculated based on initial log data):")
+            report.append(f"    {list_item}Baseline Response Time: {code_wrapper}{baseline_response_time:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}Baseline Connect Time: {code_wrapper}{baseline_connect_time:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Response Time Threshold: > {code_wrapper}{current_response_time_threshold:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Connect Time Threshold: > {code_wrapper}{current_connect_time_threshold:.1f} ms{code_wrapper}")
         else:
-            report.append(f"{list_item}使用 {bold_wrapper}固定阈值{bold_wrapper} (原因: {baseline_fallback_reason}):")
-            report.append(f"    {list_item}高响应时间阈值: > {code_wrapper}{current_response_time_threshold:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高连接时间阈值: > {code_wrapper}{current_connect_time_threshold:.1f} ms{code_wrapper}")
+            report.append(f"{list_item}Using {bold_wrapper}Fixed Thresholds{bold_wrapper} (Reason: {baseline_fallback_reason}):")
+            report.append(f"    {list_item}High Response Time Threshold: > {code_wrapper}{current_response_time_threshold:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Connect Time Threshold: > {code_wrapper}{current_connect_time_threshold:.1f} ms{code_wrapper}")
         
-        report.append(f"    {list_item}高DNS解析时间阈值: > {code_wrapper}{current_dns_time_threshold:.1f} ms{code_wrapper}")
-        report.append(f"    {list_item}高错误率阈值: > {code_wrapper}{current_error_rate_threshold:.1f}%{code_wrapper}")
+        report.append(f"    {list_item}High DNS Resolution Time Threshold: > {code_wrapper}{current_dns_time_threshold:.1f} ms{code_wrapper}")
+        report.append(f"    {list_item}High Error Rate Threshold: > {code_wrapper}{current_error_rate_threshold:.1f}%{code_wrapper}")
         report.append("")
         
-        report.append(f"{section_prefix}潜在问题时段")
+        report.append(f"{section_prefix}Potential Problem Periods")
         if slow_response_periods or slow_connect_periods or slow_dns_periods or error_periods:
             if slow_response_periods:
-                report.append(f"{subsection_prefix}慢响应 (>{current_response_time_threshold:.1f}ms) - {len(slow_response_periods)} 次")
+                report.append(f"{subsection_prefix}Slow Response (>{current_response_time_threshold:.1f}ms) - {len(slow_response_periods)} times")
                 for p in slow_response_periods:
                     report.append(f"{list_item}{p}")
                 report.append("")
             
             if slow_connect_periods:
-                report.append(f"{subsection_prefix}慢连接 (>{current_connect_time_threshold:.1f}ms) - {len(slow_connect_periods)} 次")
+                report.append(f"{subsection_prefix}Slow Connect (>{current_connect_time_threshold:.1f}ms) - {len(slow_connect_periods)} times")
                 for p in slow_connect_periods:
                     report.append(f"{list_item}{p}")
                 report.append("")
             
             if slow_dns_periods:
-                report.append(f"{subsection_prefix}慢DNS解析 (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} 次")
+                report.append(f"{subsection_prefix}Slow DNS Resolution (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} times")
                 for p in slow_dns_periods:
                     report.append(f"{list_item}{p}")
                 report.append("")
             
             if error_periods:
-                report.append(f"{subsection_prefix}请求错误 - {len(error_periods)} 次")
+                report.append(f"{subsection_prefix}Request Errors - {len(error_periods)} times")
                 for p in error_periods:
                     report.append(f"{list_item}{p}")
                 report.append("")
         else:
-            report.append(f"{list_item}未检测到明显超出阈值的问题时段。")
+            report.append(f"{list_item}No problem periods significantly exceeding thresholds were detected.")
             report.append("")
         
-        report.append(f"{section_prefix}总结")
+        report.append(f"{section_prefix}Summary")
         summary_points = []
         
         if success_rate >= 99.0:
-            summary_points.append(f"服务可用性{bold_wrapper}极佳{bold_wrapper}，成功率达到 {code_wrapper}{success_rate:.2f}%{code_wrapper}。")
+            summary_points.append(f"Service availability is {bold_wrapper}excellent{bold_wrapper}, with a success rate of {code_wrapper}{success_rate:.2f}%{code_wrapper}.")
         elif success_rate >= 95.0:
-            summary_points.append(f"服务可用性良好，成功率为 {code_wrapper}{success_rate:.2f}%{code_wrapper}。")
+            summary_points.append(f"Service availability is good, with a success rate of {code_wrapper}{success_rate:.2f}%{code_wrapper}.")
         elif success_rate >= 90.0:
-            summary_points.append(f"服务可用性一般，成功率为 {code_wrapper}{success_rate:.2f}%{code_wrapper}，需要关注。")
+            summary_points.append(f"Service availability is fair, with a success rate of {code_wrapper}{success_rate:.2f}%{code_wrapper}, and requires attention.")
         else:
-            summary_points.append(f"服务可用性{bold_wrapper}较差{bold_wrapper}，成功率仅为 {code_wrapper}{success_rate:.2f}%{code_wrapper}，{bold_wrapper}需要紧急处理{bold_wrapper}。")
+            summary_points.append(f"Service availability is {bold_wrapper}poor{bold_wrapper}, with a success rate of only {code_wrapper}{success_rate:.2f}%{code_wrapper}, and {bold_wrapper}requires urgent attention{bold_wrapper}.")
         
         if avg_total_time < current_response_time_threshold / 3:
-            summary_points.append(f"平均响应时间{bold_wrapper}优秀{bold_wrapper} ({code_wrapper}{avg_total_time:.1f}ms{code_wrapper})，用户体验良好。")
+            summary_points.append(f"Average response time is {bold_wrapper}excellent{bold_wrapper} ({code_wrapper}{avg_total_time:.1f}ms{code_wrapper}), indicating a good user experience.")
         elif avg_total_time < current_response_time_threshold:
-            summary_points.append(f"平均响应时间可接受 ({code_wrapper}{avg_total_time:.1f}ms{code_wrapper})。")
+            summary_points.append(f"Average response time is acceptable ({code_wrapper}{avg_total_time:.1f}ms{code_wrapper}).")
         else:
-            summary_points.append(f"平均响应时间{bold_wrapper}较慢{bold_wrapper} ({code_wrapper}{avg_total_time:.1f}ms{code_wrapper})，可能影响用户体验。")
+            summary_points.append(f"Average response time is {bold_wrapper}slow{bold_wrapper} ({code_wrapper}{avg_total_time:.1f}ms{code_wrapper}), which may affect user experience.")
         
         if error_periods:
-            summary_points.append(f"检测到 {len(error_periods)} 次请求错误，详见上方列表。")
+            summary_points.append(f"Detected {len(error_periods)} request errors, see list above for details.")
         else:
-            summary_points.append("未发现请求错误，服务稳定性良好。")
+            summary_points.append("No request errors found, service stability is good.")
         
         for point in summary_points:
             report.append(f"{list_item}{point}")
     
     else:
-        # 纯文本报告
+        # Plain text report
         sep = "=" * 60
         sub_sep = "-" * 60
         list_indent = "  "
         
         report.append(sep)
-        report.append(f" CURL 日志分析报告: {metadata['target_url']}")
+        report.append(f" CURL Log Analysis Report: {metadata['target_url']}")
         report.append(sep)
         report.append("")
         
-        report.append("--- 分析环境与监控配置 ---")
-        report.append(f"{list_indent}源公网 IP (来自日志): {metadata['source_public_ip']}")
-        report.append(f"{list_indent}目标 URL:             {metadata['target_url']}")
-        report.append(f"{list_indent}日志文件:           {os.path.basename(log_file_path)}")
-        report.append(f"{list_indent}监控开始 (日志记录): {metadata['start_time_str']}")
-        report.append(f"{list_indent}分析数据范围:       {first_timestamp} 至 {last_timestamp}")
-        report.append(f"{list_indent}总持续时间:         {duration}")
-        report.append(f"{list_indent}总请求次数:         {total_requests}")
-        report.append(f"{list_indent}测量间隔:           {metadata['interval_seconds']} 秒")
-        report.append(f"{list_indent}CURL 超时:          {metadata['curl_timeout']} 秒")
+        report.append("--- Analysis Environment and Monitoring Configuration ---")
+        report.append(f"{list_indent}Source Public IP (from log): {metadata['source_public_ip']}")
+        report.append(f"{list_indent}Target URL:             {metadata['target_url']}")
+        report.append(f"{list_indent}Log File:               {os.path.basename(log_file_path)}")
+        report.append(f"{list_indent}Monitoring Start (log record): {metadata['start_time_str']}")
+        report.append(f"{list_indent}Analyzed Data Range:   {first_timestamp} to {last_timestamp}")
+        report.append(f"{list_indent}Total Duration:         {duration}")
+        report.append(f"{list_indent}Total Requests:         {total_requests}")
+        report.append(f"{list_indent}Measurement Interval:   {metadata['interval_seconds']} seconds")
+        report.append(f"{list_indent}CURL Timeout:          {metadata['curl_timeout']} seconds")
         report.append(f"{list_indent}User-Agent:         {metadata['user_agent']}")
-        report.append(f"{list_indent}分析脚本主机名:     {metadata['analysis_hostname']}")
-        report.append(f"{list_indent}分析脚本时区:       {metadata['analysis_timezone']}")
+        report.append(f"{list_indent}Analysis Script Hostname: {metadata['analysis_hostname']}")
+        report.append(f"{list_indent}Analysis Script Timezone: {metadata['analysis_timezone']}")
         report.append("")
         
-        report.append("--- 整体统计 ---")
-        report.append(f"{list_indent}总请求数:           {total_requests}")
-        report.append(f"{list_indent}成功请求数:         {success_count}")
-        report.append(f"{list_indent}失败请求数:         {error_count}")
-        report.append(f"{list_indent}成功率:             {success_rate:.2f}%")
-        report.append(f"{list_indent}错误率:             {error_rate:.2f}%")
-        report.append(f"{list_indent}平均响应时间:       {avg_total_time:.1f} ms")
-        report.append(f"{list_indent}最小响应时间:       {min_total_time:.1f} ms")
-        report.append(f"{list_indent}最大响应时间:       {max_total_time:.1f} ms")
-        report.append(f"{list_indent}平均连接时间:       {avg_connect_time:.1f} ms")
-        report.append(f"{list_indent}平均DNS解析时间:    {avg_dns_time:.1f} ms")
+        report.append("--- Overall Statistics ---")
+        report.append(f"{list_indent}Total Requests:           {total_requests}")
+        report.append(f"{list_indent}Successful Requests:      {success_count}")
+        report.append(f"{list_indent}Failed Requests:          {error_count}")
+        report.append(f"{list_indent}Success Rate:             {success_rate:.2f}%")
+        report.append(f"{list_indent}Error Rate:               {error_rate:.2f}%")
+        report.append(f"{list_indent}Average Response Time:    {avg_total_time:.1f} ms")
+        report.append(f"{list_indent}Minimum Response Time:    {min_total_time:.1f} ms")
+        report.append(f"{list_indent}Maximum Response Time:    {max_total_time:.1f} ms")
+        report.append(f"{list_indent}Average Connect Time:     {avg_connect_time:.1f} ms")
+        report.append(f"{list_indent}Average DNS Resolution Time: {avg_dns_time:.1f} ms")
         report.append("")
         
-        report.append("--- 分析阈值 ---")
+        report.append("--- Analysis Thresholds ---")
         if dynamic_thresholds_calculated:
-            report.append(f"{list_indent}模式: 动态阈值 (基于日志初始数据计算)")
-            report.append(f"{list_indent}  - 基线响应时间:   {baseline_response_time:.1f} ms")
-            report.append(f"{list_indent}  - 基线连接时间:   {baseline_connect_time:.1f} ms")
-            report.append(f"{list_indent}使用的阈值:")
-            report.append(f"{list_indent}  - 高响应时间:     > {current_response_time_threshold:.1f} ms")
-            report.append(f"{list_indent}  - 高连接时间:     > {current_connect_time_threshold:.1f} ms")
+            report.append(f"{list_indent}Mode: Dynamic Thresholds (calculated based on initial log data)")
+            report.append(f"{list_indent}  - Baseline Response Time:   {baseline_response_time:.1f} ms")
+            report.append(f"{list_indent}  - Baseline Connect Time:   {baseline_connect_time:.1f} ms")
+            report.append(f"{list_indent}Thresholds Used:")
+            report.append(f"{list_indent}  - High Response Time:     > {current_response_time_threshold:.1f} ms")
+            report.append(f"{list_indent}  - High Connect Time:     > {current_connect_time_threshold:.1f} ms")
         else:
-            report.append(f"{list_indent}模式: 固定阈值 (原因: {baseline_fallback_reason})")
-            report.append(f"{list_indent}使用的阈值:")
-            report.append(f"{list_indent}  - 高响应时间:     > {current_response_time_threshold:.1f} ms")
-            report.append(f"{list_indent}  - 高连接时间:     > {current_connect_time_threshold:.1f} ms")
+            report.append(f"{list_indent}Mode: Fixed Thresholds (Reason: {baseline_fallback_reason})")
+            report.append(f"{list_indent}Thresholds Used:")
+            report.append(f"{list_indent}  - High Response Time:     > {current_response_time_threshold:.1f} ms")
+            report.append(f"{list_indent}  - High Connect Time:     > {current_connect_time_threshold:.1f} ms")
         
-        report.append(f"{list_indent}  - 高DNS解析时间:  > {current_dns_time_threshold:.1f} ms")
-        report.append(f"{list_indent}  - 高错误率:       > {current_error_rate_threshold:.1f}%")
+        report.append(f"{list_indent}  - High DNS Resolution Time:  > {current_dns_time_threshold:.1f} ms")
+        report.append(f"{list_indent}  - High Error Rate:       > {current_error_rate_threshold:.1f}%")
         report.append("")
         
-        report.append("--- 潜在问题时段 ---")
+        report.append("--- Potential Problem Periods ---")
         if slow_response_periods or slow_connect_periods or slow_dns_periods or error_periods:
             if slow_response_periods:
-                report.append(f"{list_indent}慢响应 (>{current_response_time_threshold:.1f}ms) - {len(slow_response_periods)} 次:")
+                report.append(f"{list_indent}Slow Response (>{current_response_time_threshold:.1f}ms) - {len(slow_response_periods)} times:")
                 for p in slow_response_periods:
                     report.append(f"{list_indent}  - {p}")
                 report.append("")
             
             if slow_connect_periods:
-                report.append(f"{list_indent}慢连接 (>{current_connect_time_threshold:.1f}ms) - {len(slow_connect_periods)} 次:")
+                report.append(f"{list_indent}Slow Connect (>{current_connect_time_threshold:.1f}ms) - {len(slow_connect_periods)} times:")
                 for p in slow_connect_periods:
                     report.append(f"{list_indent}  - {p}")
                 report.append("")
             
             if slow_dns_periods:
-                report.append(f"{list_indent}慢DNS解析 (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} 次:")
+                report.append(f"{list_indent}Slow DNS Resolution (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} times:")
                 for p in slow_dns_periods:
                     report.append(f"{list_indent}  - {p}")
                 report.append("")
             
             if error_periods:
-                report.append(f"{list_indent}请求错误 - {len(error_periods)} 次:")
+                report.append(f"{list_indent}Request Errors - {len(error_periods)} times:")
                 for p in error_periods:
                     report.append(f"{list_indent}  - {p}")
                 report.append("")
         else:
-            report.append(f"{list_indent}未检测到明显超出阈值的问题时段。")
+            report.append(f"{list_indent}No problem periods significantly exceeding thresholds were detected.")
             report.append("")
         
-        report.append("--- 总结 ---")
+        report.append("--- Summary ---")
         summary_points = []
         
         if success_rate >= 99.0:
-            summary_points.append(f"服务可用性极佳，成功率达到 {success_rate:.2f}%。")
+            summary_points.append(f"Service availability is excellent, with a success rate of {success_rate:.2f}%.")
         elif success_rate >= 95.0:
-            summary_points.append(f"服务可用性良好，成功率为 {success_rate:.2f}%。")
+            summary_points.append(f"Service availability is good, with a success rate of {success_rate:.2f}%.")
         elif success_rate >= 90.0:
-            summary_points.append(f"服务可用性一般，成功率为 {success_rate:.2f}%，需要关注。")
+            summary_points.append(f"Service availability is fair, with a success rate of {success_rate:.2f}%, and requires attention.")
         else:
-            summary_points.append(f"服务可用性较差，成功率仅为 {success_rate:.2f}%，需要紧急处理。")
+            summary_points.append(f"Service availability is poor, with a success rate of only {success_rate:.2f}%, and requires urgent attention.")
         
         if avg_total_time < current_response_time_threshold / 3:
-            summary_points.append(f"平均响应时间优秀 ({avg_total_time:.1f}ms)，用户体验良好。")
+            summary_points.append(f"Average response time is excellent ({avg_total_time:.1f}ms), indicating a good user experience.")
         elif avg_total_time < current_response_time_threshold:
-            summary_points.append(f"平均响应时间可接受 ({avg_total_time:.1f}ms)。")
+            summary_points.append(f"Average response time is acceptable ({avg_total_time:.1f}ms)." )
         else:
-            summary_points.append(f"平均响应时间较慢 ({avg_total_time:.1f}ms)，可能影响用户体验。")
+            summary_points.append(f"Average response time is slow ({avg_total_time:.1f}ms), which may affect user experience.")
         
         if error_periods:
-            summary_points.append(f"检测到 {len(error_periods)} 次请求错误，详见上方列表。")
+            summary_points.append(f"Detected {len(error_periods)} request errors, see list above for details.")
         else:
-            summary_points.append("未发现请求错误，服务稳定性良好。")
+            summary_points.append("No request errors found, service stability is good.")
         
         for point in summary_points:
             report.append(f"{list_indent}{point}")
@@ -557,8 +557,8 @@ def analyze_curl_log(log_file_path, markdown_format=False):
 
 def main():
     if len(sys.argv) < 2:
-        print(f"用法: {sys.argv[0]} <curl日志文件路径> [--markdown]")
-        print("示例:")
+        print(f"Usage: {sys.argv[0]} <curl_log_file_path> [--markdown]")
+        print("Examples:")
         print(f"  {sys.argv[0]} curl_monitor_https___www_google_com.log")
         print(f"  {sys.argv[0]} curl_monitor_https___www_google_com.log --markdown")
         sys.exit(1)
@@ -567,14 +567,14 @@ def main():
     markdown_format = '--markdown' in sys.argv
     
     if not os.path.exists(log_file_path):
-        print(f"错误: 日志文件不存在: {log_file_path}")
+        print(f"Error: Log file not found: {log_file_path}")
         sys.exit(1)
     
-    print(f"正在分析日志文件: {log_file_path}")
+    print(f"Analyzing log file: {log_file_path}")
     if markdown_format:
-        print("输出格式: Markdown")
+        print("Output format: Markdown")
     else:
-        print("输出格式: 纯文本")
+        print("Output format: Plain Text")
     print()
     
     result = analyze_curl_log(log_file_path, markdown_format)

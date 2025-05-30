@@ -10,43 +10,43 @@ import time
 import os
 import math # Needed for isnan
 
-# --- 可配置阈值 (固定阈值 - 作为回退选项) ---
-# 丢包率阈值
+# --- Configurable Thresholds (Fixed Thresholds - as fallback options) ---
+# Packet loss threshold
 HIGH_LOSS_THRESHOLD = 1.0 # (%)
-# 延迟阈值
-HIGH_LATENCY_THRESHOLD = 100.0 # 固定平均 RTT 阈值 (ms)
-# 抖动阈值 (多种衡量方式)
-HIGH_JITTER_THRESHOLD_DIRECT = 50.0 # 固定直接 Jitter 值阈值 (ms) - 来自日志最后一列计算值
-HIGH_JITTER_THRESHOLD_STDDEV = 50.0 # 固定抖动 StdDev 值阈值 (ms) - 来自日志倒数第二列
-HIGH_JITTER_THRESHOLD_MAX_AVG_RATIO = 3.0 # 固定抖动 Max/Avg 比率阈值
+# Latency threshold
+HIGH_LATENCY_THRESHOLD = 100.0 # Fixed average RTT threshold (ms)
+# Jitter threshold (multiple metrics)
+HIGH_JITTER_THRESHOLD_DIRECT = 50.0 # Fixed direct Jitter value threshold (ms) - from the last column of the log
+HIGH_JITTER_THRESHOLD_STDDEV = 50.0 # Fixed Jitter StdDev value threshold (ms) - from the second to last column of the log
+HIGH_JITTER_THRESHOLD_MAX_AVG_RATIO = 3.0 # Fixed Jitter Max/Avg ratio threshold
 
-# --- 动态基线计算参数 ---
-MAX_BASELINE_CANDIDATES = 100 # 最多用于计算基线的初始记录数
-MIN_BASELINE_SAMPLES = 20    # 计算基线所需的最少稳定样本数
-STABLE_LOSS_THRESHOLD = 0.5  # 定义稳定记录的丢包率上限 (%)
+# --- Dynamic Baseline Calculation Parameters ---
+MAX_BASELINE_CANDIDATES = 100 # Maximum number of initial records to use for baseline calculation
+MIN_BASELINE_SAMPLES = 20    # Minimum number of stable samples required to calculate baseline
+STABLE_LOSS_THRESHOLD = 0.5  # Upper limit of packet loss rate for defining a stable record (%)
 
-# --- 动态阈值计算参数 ---
-# 延迟
-DYNAMIC_LATENCY_FACTOR = 1.5   # 平均 RTT 基线倍数
-DYNAMIC_LATENCY_OFFSET = 10.0  # 平均 RTT 固定偏移 (ms)
-MIN_DYNAMIC_LATENCY_THRESHOLD = 30.0 # 动态计算的最小延迟阈值 (ms)
-# 抖动 (直接值)
-DYNAMIC_JITTER_DIRECT_FACTOR = 2.0 # 直接 Jitter 基线倍数
-DYNAMIC_JITTER_DIRECT_OFFSET = 5.0 # 直接 Jitter 固定偏移 (ms)
-MIN_DYNAMIC_JITTER_DIRECT_THRESHOLD = 15.0 # 动态计算的最小直接 Jitter 阈值 (ms)
-# 抖动 (标准差)
-DYNAMIC_JITTER_STDDEV_FACTOR = 2.0 # StdDev Jitter 基线倍数
-DYNAMIC_JITTER_RTT_RATIO = 0.3   # StdDev 相对于平均 RTT 的比例因子
-MIN_DYNAMIC_JITTER_STDDEV_THRESHOLD = 10.0 # 动态计算的最小 StdDev Jitter 阈值 (ms)
-# DYNAMIC_JITTER_MAX_AVG_RATIO 保持固定
+# --- Dynamic Threshold Calculation Parameters ---
+# Latency
+DYNAMIC_LATENCY_FACTOR = 1.5   # Average RTT baseline multiplier
+DYNAMIC_LATENCY_OFFSET = 10.0  # Fixed RTT offset (ms)
+MIN_DYNAMIC_LATENCY_THRESHOLD = 30.0 # Minimum dynamically calculated latency threshold (ms)
+# Jitter (Direct Value)
+DYNAMIC_JITTER_DIRECT_FACTOR = 2.0 # Direct Jitter baseline multiplier
+DYNAMIC_JITTER_DIRECT_OFFSET = 5.0 # Direct Jitter fixed offset (ms)
+MIN_DYNAMIC_JITTER_DIRECT_THRESHOLD = 15.0 # Minimum dynamically calculated direct Jitter threshold (ms)
+# Jitter (Standard Deviation)
+DYNAMIC_JITTER_STDDEV_FACTOR = 2.0 # StdDev Jitter baseline multiplier
+DYNAMIC_JITTER_RTT_RATIO = 0.3   # StdDev ratio to average RTT factor
+MIN_DYNAMIC_JITTER_STDDEV_THRESHOLD = 10.0 # Minimum dynamically calculated StdDev Jitter threshold (ms)
+# DYNAMIC_JITTER_MAX_AVG_RATIO remains fixed
 
-# --- 获取系统信息的函数 (保持不变) ---
+# --- Functions to get system information (Unchanged) ---
 def get_hostname():
     try: return socket.gethostname()
-    except socket.error as e: print(f"警告: 无法获取主机名: {e}", file=sys.stderr); return "未知 (无法获取)"
+    except socket.error as e: print(f"Warning: Unable to get hostname: {e}", file=sys.stderr); return "Unknown (Unable to fetch)"
 
 def get_timezone_info():
-    # (代码与之前版本相同，保持不变)
+    # (Code is the same as the previous version, remains unchanged)
     try:
         tz_name = datetime.now().astimezone().tzname()
         if tz_name and not re.match(r"^[+-]\d{2}$", tz_name) and tz_name.upper() != 'UTC':
@@ -66,13 +66,13 @@ def get_timezone_info():
         offset_str = f"UTC{sign}{int(abs(offset_hours)):02d}:{int(abs(offset_seconds) % 3600 / 60):02d}"
         if current_tz_name and current_tz_name != 'UTC': return f"{current_tz_name} ({offset_str})"
         else: return offset_str
-    except Exception as e: print(f"警告: 无法获取时区信息: {e}", file=sys.stderr); return "未知 (无法获取)"
+    except Exception as e: print(f"Warning: Unable to get timezone information: {e}", file=sys.stderr); return "Unknown (Unable to fetch)"
 
-# --- 解析 UDP Ping 日志行的函数 ---
+# --- Function to parse UDP Ping log lines ---
 def parse_udp_log_line(line):
-    """解析 UDP Ping 日志的数据行"""
-    # 正则表达式匹配日志数据行格式
-    # 时间戳 | 发送 | 接收 | 丢包率(%) | Min RTT(ms) | Avg RTT(ms) | Max RTT(ms) | StdDev(ms) | Jitter(ms) | Size(bytes)
+    """Parse data lines from UDP Ping log"""
+    # Regex to match log data line format
+    # Timestamp | Sent | Received | Loss(%) | Min RTT(ms) | Avg RTT(ms) | Max RTT(ms) | StdDev(ms) | Jitter(ms) | Size(bytes)
     pattern = re.compile(
         r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\|\s*" # 1: Timestamp
         r"(\d+)\s*\|\s*"                                   # 2: Sent
@@ -88,7 +88,7 @@ def parse_udp_log_line(line):
     match = pattern.match(line)
     if match:
         try:
-            # 定义一个辅助函数处理可能为 'nan' 的浮点数
+            # Helper function to handle floats that might be 'nan'
             def safe_float(value):
                 return float(value) if value.lower() != 'nan' else math.nan
 
@@ -110,31 +110,31 @@ def parse_udp_log_line(line):
                 "size_bytes": size_bytes
             }
         except (ValueError, IndexError) as e:
-            print(f"警告: 解析数据行时出错: {line.strip()} - {e}", file=sys.stderr)
+            print(f"Warning: Error parsing data line: {line.strip()} - {e}", file=sys.stderr)
             return None
     return None
 
-# --- 主要分析和报告生成函数 ---
+# --- Main analysis and report generation function ---
 def analyze_udp_ping_log(log_file_path, markdown_format=False):
-    """分析 UDP Ping 日志文件并生成报告内容 (文本或 Markdown)"""
+    """Analyze UDP Ping log file and generate report content (text or Markdown)"""
 
     analysis_hostname = get_hostname()
     analysis_timezone = get_timezone_info()
 
-    # 初始化元数据字典，匹配 UDP log header
+    # Initialize metadata dictionary, matching UDP log header
     metadata = {
-        "target_ip": "未知", "target_port": "未知",
-        "start_time_str": "未知", "packets_per_measurement_desc": "未知",
-        "summary_interval_seconds": "未知 (仅周期模式)",
-        "ping_interval_seconds": "未知", "ping_size_bytes": "未知",
-        "ping_timeout_seconds": "未知",
+        "target_ip": "Unknown", "target_port": "Unknown",
+        "start_time_str": "Unknown", "packets_per_measurement_desc": "Unknown",
+        "summary_interval_seconds": "Unknown (Periodic mode only)",
+        "ping_interval_seconds": "Unknown", "ping_size_bytes": "Unknown",
+        "ping_timeout_seconds": "Unknown",
         "analysis_hostname": analysis_hostname, "analysis_timezone": analysis_timezone,
     }
     data_records = []
     header_parsed = False
     data_section_started = False
 
-    # 解析日志文件头部和数据
+    # Parse log file header and data
     try:
         with open(log_file_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -142,88 +142,88 @@ def analyze_udp_ping_log(log_file_path, markdown_format=False):
                 if not line: continue
 
                 if not header_parsed:
-                    # 解析头部信息
-                    match_ip = re.match(r".*目标 IP:\s*(.*)", line)
+                    # Parse header information
+                    match_ip = re.match(r".*Target IP:\s*(.*)", line)
                     if match_ip: metadata["target_ip"] = match_ip.group(1).strip(); continue
-                    match_port = re.match(r".*目标端口:\s*(\d+)", line)
+                    match_port = re.match(r".*Target Port:\s*(\d+)", line)
                     if match_port: metadata["target_port"] = match_port.group(1).strip(); continue
-                    match_start = re.match(r".*监控启动于:\s*(.*)", line)
+                    match_start = re.match(r".*Monitoring started at:\s*(.*)", line)
                     if match_start: metadata["start_time_str"] = match_start.group(1).strip(); continue
-                    # 处理两种包数描述
-                    match_packets = re.match(r".*(?:每次测量|本次运行) PING 包数:\s*(.*)", line)
+                    # Handle two types of packet count descriptions
+                    match_packets = re.match(r".*(?:Packets per measurement|Packets in this run):\s*(.*)", line)
                     if match_packets: metadata["packets_per_measurement_desc"] = match_packets.group(1).strip(); continue
-                    match_summary_interval = re.match(r".*日志汇总间隔 \(秒\):\s*([\d.]+)", line)
+                    match_summary_interval = re.match(r".*Log summary interval \(seconds\):\s*([\d.]+)", line)
                     if match_summary_interval: metadata["summary_interval_seconds"] = match_summary_interval.group(1).strip(); continue
-                    match_ping_interval = re.match(r".*PING 间隔 \(秒\):\s*([\d.]+)", line)
+                    match_ping_interval = re.match(r".*Ping interval \(seconds\):\s*([\d.]+)", line)
                     if match_ping_interval: metadata["ping_interval_seconds"] = match_ping_interval.group(1).strip(); continue
-                    match_size = re.match(r".*PING 大小 \(字节\):\s*(\d+)", line)
+                    match_size = re.match(r".*Ping payload size \(bytes\):\s*(\d+)", line) # Corrected key from PING 大小 to Ping payload size
                     if match_size: metadata["ping_size_bytes"] = match_size.group(1).strip(); continue
-                    match_timeout = re.match(r".*PING 超时 \(秒\):\s*([\d.]+)", line)
+                    match_timeout = re.match(r".*Ping timeout \(seconds\):\s*([\d.]+)", line)
                     if match_timeout: metadata["ping_timeout_seconds"] = match_timeout.group(1).strip(); continue
 
-                    # 检查是否到达数据区表头或分隔线
-                    if "---" in line or "发送 | 接收 | 丢包率(%)" in line:
+                    # Check if data section header or separator line is reached
+                    if "---" in line or "Sent | Recv | Loss(%)" in line: # Adjusted for English table header
                         data_section_started = True
-                        header_parsed = True # 假设读到这里头部就结束了
-                        continue # 跳过分隔线或表头本身
+                        header_parsed = True # Assume header ends here
+                        continue # Skip separator or header line itself
 
                 if header_parsed:
                     record = parse_udp_log_line(line)
                     if record: data_records.append(record)
 
-    except FileNotFoundError: return f"错误: 文件未找到: {log_file_path}"
-    except Exception as e: return f"错误: 读取或解析文件时发生异常: {e}"
+    except FileNotFoundError: return f"Error: File not found: {log_file_path}"
+    except Exception as e: return f"Error: Exception occurred while reading or parsing file: {e}"
 
-    if not data_records: return f"错误: 在文件 {log_file_path} 中未找到有效的数据记录。"
+    if not data_records: return f"Error: No valid data records found in file {log_file_path}."
 
-    # --- 动态基线和阈值计算 ---
-    baseline_rtt, baseline_stddev, baseline_jitter = None, None, None # 添加 jitter 基线
+    # --- Dynamic Baseline and Threshold Calculation ---
+    baseline_rtt, baseline_stddev, baseline_jitter = None, None, None # Add jitter baseline
     dynamic_thresholds_calculated = False
     baseline_fallback_reason = ""
 
-    # 选取用于计算基线的稳定记录 (低丢包率)
+    # Select stable records for baseline calculation (low loss rate)
     stable_initial_records = [r for r in data_records[:MAX_BASELINE_CANDIDATES]
                               if not math.isnan(r['loss_perc']) and r['loss_perc'] <= STABLE_LOSS_THRESHOLD
-                              and not math.isnan(r['avg_rtt']) and not math.isnan(r['stddev_rtt']) and not math.isnan(r['jitter_rtt'])] # 确保相关值非 NaN
+                              and not math.isnan(r['avg_rtt']) and not math.isnan(r['stddev_rtt']) and not math.isnan(r['jitter_rtt'])] # Ensure relevant values are not NaN
 
     if len(stable_initial_records) >= MIN_BASELINE_SAMPLES:
         try:
             baseline_rtt = statistics.mean(r['avg_rtt'] for r in stable_initial_records)
             baseline_stddev = statistics.mean(r['stddev_rtt'] for r in stable_initial_records)
-            baseline_jitter = statistics.mean(r['jitter_rtt'] for r in stable_initial_records) # 计算 jitter 基线
+            baseline_jitter = statistics.mean(r['jitter_rtt'] for r in stable_initial_records) # Calculate jitter baseline
             dynamic_thresholds_calculated = True
 
-            # 计算动态阈值
+            # Calculate dynamic thresholds
             current_latency_threshold = max(baseline_rtt * DYNAMIC_LATENCY_FACTOR + DYNAMIC_LATENCY_OFFSET, MIN_DYNAMIC_LATENCY_THRESHOLD)
-            current_jitter_direct_threshold = max(baseline_jitter * DYNAMIC_JITTER_DIRECT_FACTOR + DYNAMIC_JITTER_DIRECT_OFFSET, MIN_DYNAMIC_JITTER_DIRECT_THRESHOLD) # 新增直接 Jitter 动态阈值
+            current_jitter_direct_threshold = max(baseline_jitter * DYNAMIC_JITTER_DIRECT_FACTOR + DYNAMIC_JITTER_DIRECT_OFFSET, MIN_DYNAMIC_JITTER_DIRECT_THRESHOLD) # Add direct Jitter dynamic threshold
             current_jitter_stddev_threshold = max(baseline_stddev * DYNAMIC_JITTER_STDDEV_FACTOR, baseline_rtt * DYNAMIC_JITTER_RTT_RATIO, MIN_DYNAMIC_JITTER_STDDEV_THRESHOLD)
-            current_jitter_max_avg_ratio = HIGH_JITTER_THRESHOLD_MAX_AVG_RATIO # Max/Avg 比率保持固定
+            current_jitter_max_avg_ratio = HIGH_JITTER_THRESHOLD_MAX_AVG_RATIO # Max/Avg ratio remains fixed
 
         except statistics.StatisticsError as e:
             dynamic_thresholds_calculated = False
-            baseline_fallback_reason = f"基线统计计算错误: {e}"
+            baseline_fallback_reason = f"Baseline statistics calculation error: {e}"
     else:
         dynamic_thresholds_calculated = False
-        if len(data_records) < MIN_BASELINE_SAMPLES: baseline_fallback_reason = f"日志数据不足 (少于 {MIN_BASELINE_SAMPLES} 条)"
-        else: baseline_fallback_reason = f"日志初始 {MAX_BASELINE_CANDIDATES} 条记录中稳定样本不足 (< {MIN_BASELINE_SAMPLES} 条, 稳定丢包率 <= {STABLE_LOSS_THRESHOLD}%)"
+        if len(data_records) < MIN_BASELINE_SAMPLES: baseline_fallback_reason = f"Insufficient log data (less than {MIN_BASELINE_SAMPLES} records)"
+        else: baseline_fallback_reason = f"Insufficient stable samples in the initial {MAX_BASELINE_CANDIDATES} log records (< {MIN_BASELINE_SAMPLES} records, stable loss rate <= {STABLE_LOSS_THRESHOLD}%)"
 
-    # 如果动态计算失败，使用固定阈值
+    # If dynamic calculation fails, use fixed thresholds
     if not dynamic_thresholds_calculated:
         current_latency_threshold = HIGH_LATENCY_THRESHOLD
         current_jitter_direct_threshold = HIGH_JITTER_THRESHOLD_DIRECT
         current_jitter_stddev_threshold = HIGH_JITTER_THRESHOLD_STDDEV
         current_jitter_max_avg_ratio = HIGH_JITTER_THRESHOLD_MAX_AVG_RATIO
-    # 丢包率阈值总是固定的
+    # Packet loss threshold is always fixed
     current_loss_threshold = HIGH_LOSS_THRESHOLD
-    # --- 结束动态基线和阈值计算 ---
+    # --- End of dynamic baseline and threshold calculation ---
 
-    # --- 分析逻辑 ---
+    # --- Analysis Logic ---
     total_measurements = len(data_records)
     first_timestamp = data_records[0]['timestamp']
     last_timestamp = data_records[-1]['timestamp']
     duration = last_timestamp - first_timestamp
 
-    # 计算整体统计数据，过滤掉 NaN 值
+    # Calculate overall statistics, filtering out NaN values
     valid_sent = [r['sent'] for r in data_records if not math.isnan(r['sent'])]
     valid_received = [r['received'] for r in data_records if not math.isnan(r['received'])]
     total_sent = sum(valid_sent)
@@ -234,29 +234,29 @@ def analyze_udp_ping_log(log_file_path, markdown_format=False):
     all_min_rtts = [r['min_rtt'] for r in data_records if not math.isnan(r['min_rtt'])]
     all_max_rtts = [r['max_rtt'] for r in data_records if not math.isnan(r['max_rtt'])]
     all_stddev_rtts = [r['stddev_rtt'] for r in data_records if not math.isnan(r['stddev_rtt'])]
-    all_jitter_rtts = [r['jitter_rtt'] for r in data_records if not math.isnan(r['jitter_rtt'])] # 获取所有有效的 jitter 值
+    all_jitter_rtts = [r['jitter_rtt'] for r in data_records if not math.isnan(r['jitter_rtt'])] # Get all valid jitter values
 
     overall_avg_rtt = statistics.mean(all_avg_rtts) if all_avg_rtts else 0.0
     overall_min_rtt = min(all_min_rtts) if all_min_rtts else 0.0
     overall_max_rtt = max(all_max_rtts) if all_max_rtts else 0.0
     overall_avg_stddev_rtt = statistics.mean(all_stddev_rtts) if all_stddev_rtts else 0.0
-    overall_avg_jitter = statistics.mean(all_jitter_rtts) if all_jitter_rtts else 0.0 # 计算整体平均 jitter
+    overall_avg_jitter = statistics.mean(all_jitter_rtts) if all_jitter_rtts else 0.0 # Calculate overall average jitter
 
-    # 查找超出阈值的时段
+    # Find periods exceeding thresholds
     high_loss_periods, high_latency_periods, high_jitter_periods = [], [], []
     for r in data_records:
-        # 跳过包含 NaN 值的记录的阈值检查
+        # Skip threshold checks for records containing NaN values
         if any(math.isnan(val) for val in [r['loss_perc'], r['avg_rtt'], r['max_rtt'], r['stddev_rtt'], r['jitter_rtt']]):
             continue
 
         ts = r['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-        # 检查高丢包
+        # Check for high packet loss
         if r['loss_perc'] > current_loss_threshold:
-            high_loss_periods.append(f"{ts} (丢包率: {r['loss_perc']:.1f}%)")
-        # 检查高延迟
+            high_loss_periods.append(f"{ts} (Loss Rate: {r['loss_perc']:.1f}%)")
+        # Check for high latency
         if r['avg_rtt'] > current_latency_threshold:
-            high_latency_periods.append(f"{ts} (平均 RTT: {r['avg_rtt']:.1f}ms)")
-        # 检查高抖动 (多维度)
+            high_latency_periods.append(f"{ts} (Avg RTT: {r['avg_rtt']:.1f}ms)")
+        # Check for high jitter (multiple dimensions)
         jit_direct = r['jitter_rtt'] > current_jitter_direct_threshold
         jit_std = r['stddev_rtt'] > current_jitter_stddev_threshold
         jit_rat = (r['avg_rtt'] > 0 and (r['max_rtt']/r['avg_rtt']) > current_jitter_max_avg_ratio)
@@ -267,206 +267,206 @@ def analyze_udp_ping_log(log_file_path, markdown_format=False):
             if jit_std: rea.append(f"StdDev={r['stddev_rtt']:.1f}ms"); md_rea.append(f"StdDev=`{r['stddev_rtt']:.1f}ms`")
             if jit_rat: rea.append(f"Max/Avg Ratio={(r['max_rtt'] / r['avg_rtt']):.1f}"); md_rea.append(f"Max/Avg Ratio=`{(r['max_rtt'] / r['avg_rtt']):.1f}`")
             high_jitter_periods.append({"ts": ts, "reason": ', '.join(rea), "md_reason": ', '.join(md_rea)})
-    # --- 结束分析逻辑 ---
+    # --- End of Analysis Logic ---
 
-    # --- 生成报告内容 ---
+    # --- Generate Report Content ---
     report = []
     if markdown_format:
-        # --- Markdown 报告生成 ---
+        # --- Markdown Report Generation ---
         sep_line = "---"; title_prefix = "# "; section_prefix = "## "; subsection_prefix = "### "
         list_item = "*   "; code_wrapper = "`"; bold_wrapper = "**"
 
-        report.append(f"{title_prefix}UDP Ping 日志分析报告: {code_wrapper}{metadata['target_ip']}:{metadata['target_port']}{code_wrapper}")
+        report.append(f"{title_prefix}UDP Ping Log Analysis Report: {code_wrapper}{metadata['target_ip']}:{metadata['target_port']}{code_wrapper}")
         report.append(sep_line)
-        report.append(f"{section_prefix}分析环境与监控配置")
-        report.append(f"{list_item}{bold_wrapper}目标 IP:{bold_wrapper} {code_wrapper}{metadata['target_ip']}{code_wrapper}")
-        report.append(f"{list_item}{bold_wrapper}目标端口:{bold_wrapper} {code_wrapper}{metadata['target_port']}{code_wrapper}")
-        report.append(f"{list_item}日志文件: {code_wrapper}{os.path.basename(log_file_path)}{code_wrapper}")
-        report.append(f"{list_item}监控开始 (日志记录): {metadata['start_time_str']}")
-        report.append(f"{list_item}分析数据范围: {code_wrapper}{first_timestamp}{code_wrapper} 至 {code_wrapper}{last_timestamp}{code_wrapper}")
-        report.append(f"{list_item}总持续时间: {duration}")
-        report.append(f"{list_item}总测量次数 (日志行数): {total_measurements}")
-        report.append(f"{list_item}PING 包数描述: {metadata['packets_per_measurement_desc']}")
-        if metadata['summary_interval_seconds'] != "未知 (仅周期模式)":
-            report.append(f"{list_item}日志汇总间隔: {metadata['summary_interval_seconds']} 秒")
-        report.append(f"{list_item}PING 间隔: {metadata['ping_interval_seconds']} 秒")
-        report.append(f"{list_item}PING 大小: {metadata['ping_size_bytes']} 字节")
-        report.append(f"{list_item}Ping 超时: {metadata['ping_timeout_seconds']} 秒")
-        report.append(f"{list_item}分析脚本主机名: {code_wrapper}{metadata['analysis_hostname']}{code_wrapper}")
-        report.append(f"{list_item}分析脚本时区: {metadata['analysis_timezone']}")
+        report.append(f"{section_prefix}Analysis Environment & Monitoring Configuration")
+        report.append(f"{list_item}{bold_wrapper}Target IP:{bold_wrapper} {code_wrapper}{metadata['target_ip']}{code_wrapper}")
+        report.append(f"{list_item}{bold_wrapper}Target Port:{bold_wrapper} {code_wrapper}{metadata['target_port']}{code_wrapper}")
+        report.append(f"{list_item}Log File: {code_wrapper}{os.path.basename(log_file_path)}{code_wrapper}")
+        report.append(f"{list_item}Monitoring Started (Log Time): {metadata['start_time_str']}")
+        report.append(f"{list_item}Analysis Data Range: {code_wrapper}{first_timestamp}{code_wrapper} to {code_wrapper}{last_timestamp}{code_wrapper}")
+        report.append(f"{list_item}Total Duration: {duration}")
+        report.append(f"{list_item}Total Measurements (Log Lines): {total_measurements}")
+        report.append(f"{list_item}Packets Description: {metadata['packets_per_measurement_desc']}")
+        if metadata['summary_interval_seconds'] != "Unknown (Periodic mode only)":
+            report.append(f"{list_item}Log Summary Interval: {metadata['summary_interval_seconds']} seconds")
+        report.append(f"{list_item}Ping Interval: {metadata['ping_interval_seconds']} seconds")
+        report.append(f"{list_item}Ping Payload Size: {metadata['ping_size_bytes']} bytes")
+        report.append(f"{list_item}Ping Timeout: {metadata['ping_timeout_seconds']} seconds")
+        report.append(f"{list_item}Analysis Script Hostname: {code_wrapper}{metadata['analysis_hostname']}{code_wrapper}")
+        report.append(f"{list_item}Analysis Script Timezone: {metadata['analysis_timezone']}")
         report.append("")
-        report.append(f"{section_prefix}整体统计")
-        report.append(f"{list_item}总发送/接收: {total_sent} / {total_received}")
-        report.append(f"{list_item}整体平均丢包率: {bold_wrapper}{overall_loss_perc:.2f}%{bold_wrapper}")
-        report.append(f"{list_item}整体平均 RTT: {code_wrapper}{overall_avg_rtt:.3f} ms{code_wrapper}")
-        report.append(f"{list_item}整体最小 RTT: {code_wrapper}{overall_min_rtt:.3f} ms{code_wrapper}")
-        report.append(f"{list_item}整体最大 RTT: {code_wrapper}{overall_max_rtt:.3f} ms{code_wrapper}")
-        report.append(f"{list_item}整体平均标准差 (StdDev): {code_wrapper}{overall_avg_stddev_rtt:.3f} ms{code_wrapper}")
-        report.append(f"{list_item}整体平均抖动 (Jitter): {code_wrapper}{overall_avg_jitter:.3f} ms{code_wrapper}") # 新增 Jitter
+        report.append(f"{section_prefix}Overall Statistics")
+        report.append(f"{list_item}Total Sent/Received: {total_sent} / {total_received}")
+        report.append(f"{list_item}Overall Average Loss Rate: {bold_wrapper}{overall_loss_perc:.2f}%{bold_wrapper}")
+        report.append(f"{list_item}Overall Average RTT: {code_wrapper}{overall_avg_rtt:.3f} ms{code_wrapper}")
+        report.append(f"{list_item}Overall Minimum RTT: {code_wrapper}{overall_min_rtt:.3f} ms{code_wrapper}")
+        report.append(f"{list_item}Overall Maximum RTT: {code_wrapper}{overall_max_rtt:.3f} ms{code_wrapper}")
+        report.append(f"{list_item}Overall Average Standard Deviation (StdDev): {code_wrapper}{overall_avg_stddev_rtt:.3f} ms{code_wrapper}")
+        report.append(f"{list_item}Overall Average Jitter: {code_wrapper}{overall_avg_jitter:.3f} ms{code_wrapper}") # Added Jitter
         report.append("")
-        report.append(f"{section_prefix}分析阈值")
+        report.append(f"{section_prefix}Analysis Thresholds")
         if dynamic_thresholds_calculated:
-            report.append(f"{list_item}使用 {bold_wrapper}动态阈值{bold_wrapper} (基于日志初始数据计算):")
-            report.append(f"    {list_item}基线 RTT: {code_wrapper}{baseline_rtt:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}基线 StdDev: {code_wrapper}{baseline_stddev:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}基线 Jitter: {code_wrapper}{baseline_jitter:.1f} ms{code_wrapper}") # 新增 Jitter 基线
-            report.append(f"    {list_item}高延迟阈值: > {code_wrapper}{current_latency_threshold:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高抖动 (Jitter) 阈值: > {code_wrapper}{current_jitter_direct_threshold:.1f} ms{code_wrapper}") # 新增 Jitter 阈值
-            report.append(f"    {list_item}高抖动 (StdDev) 阈值: > {code_wrapper}{current_jitter_stddev_threshold:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高抖动 (Max/Avg Ratio) 阈值: > {code_wrapper}{current_jitter_max_avg_ratio:.1f}{code_wrapper}")
+            report.append(f"{list_item}Using {bold_wrapper}Dynamic Thresholds{bold_wrapper} (calculated from initial log data):")
+            report.append(f"    {list_item}Baseline RTT: {code_wrapper}{baseline_rtt:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}Baseline StdDev: {code_wrapper}{baseline_stddev:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}Baseline Jitter: {code_wrapper}{baseline_jitter:.1f} ms{code_wrapper}") # Added Jitter baseline
+            report.append(f"    {list_item}High Latency Threshold: > {code_wrapper}{current_latency_threshold:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Jitter (Direct) Threshold: > {code_wrapper}{current_jitter_direct_threshold:.1f} ms{code_wrapper}") # Added Jitter threshold
+            report.append(f"    {list_item}High Jitter (StdDev) Threshold: > {code_wrapper}{current_jitter_stddev_threshold:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Jitter (Max/Avg Ratio) Threshold: > {code_wrapper}{current_jitter_max_avg_ratio:.1f}{code_wrapper}")
         else:
-            report.append(f"{list_item}使用 {bold_wrapper}固定阈值{bold_wrapper} (原因: {baseline_fallback_reason}):")
-            report.append(f"    {list_item}高延迟阈值: > {code_wrapper}{current_latency_threshold:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高抖动 (Jitter) 阈值: > {code_wrapper}{current_jitter_direct_threshold:.1f} ms{code_wrapper}") # 新增 Jitter 阈值
-            report.append(f"    {list_item}高抖动 (StdDev) 阈值: > {code_wrapper}{current_jitter_stddev_threshold:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高抖动 (Max/Avg Ratio) 阈值: > {code_wrapper}{current_jitter_max_avg_ratio:.1f}{code_wrapper}")
-        report.append(f"    {list_item}高丢包率阈值: > {code_wrapper}{current_loss_threshold:.1f}%{code_wrapper}")
+            report.append(f"{list_item}Using {bold_wrapper}Fixed Thresholds{bold_wrapper} (Reason: {baseline_fallback_reason}):")
+            report.append(f"    {list_item}High Latency Threshold: > {code_wrapper}{current_latency_threshold:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Jitter (Direct) Threshold: > {code_wrapper}{current_jitter_direct_threshold:.1f} ms{code_wrapper}") # Added Jitter threshold
+            report.append(f"    {list_item}High Jitter (StdDev) Threshold: > {code_wrapper}{current_jitter_stddev_threshold:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High Jitter (Max/Avg Ratio) Threshold: > {code_wrapper}{current_jitter_max_avg_ratio:.1f}{code_wrapper}")
+        report.append(f"    {list_item}High Loss Rate Threshold: > {code_wrapper}{current_loss_threshold:.1f}%{code_wrapper}")
         report.append("")
-        report.append(f"{section_prefix}潜在问题时段")
+        report.append(f"{section_prefix}Potential Problem Periods")
         if high_loss_periods or high_latency_periods or high_jitter_periods:
             if high_loss_periods:
-                report.append(f"{subsection_prefix}高丢包 (>{current_loss_threshold:.1f}%) - {len(high_loss_periods)} 次")
+                report.append(f"{subsection_prefix}High Loss (>{current_loss_threshold:.1f}%) - {len(high_loss_periods)} occurrences")
                 for p in high_loss_periods: report.append(f"{list_item}{p}")
                 report.append("")
             if high_latency_periods:
-                report.append(f"{subsection_prefix}高延迟 (>{current_latency_threshold:.1f}ms) - {len(high_latency_periods)} 次")
+                report.append(f"{subsection_prefix}High Latency (>{current_latency_threshold:.1f}ms) - {len(high_latency_periods)} occurrences")
                 for p in high_latency_periods: report.append(f"{list_item}{p}")
                 report.append("")
             if high_jitter_periods:
-                report.append(f"{subsection_prefix}高抖动 (Jitter>{current_jitter_direct_threshold:.1f}ms 或 StdDev>{current_jitter_stddev_threshold:.1f}ms 或 Max/Avg>{current_jitter_max_avg_ratio:.1f}) - {len(high_jitter_periods)} 次")
+                report.append(f"{subsection_prefix}High Jitter (Jitter>{current_jitter_direct_threshold:.1f}ms or StdDev>{current_jitter_stddev_threshold:.1f}ms or Max/Avg>{current_jitter_max_avg_ratio:.1f}) - {len(high_jitter_periods)} occurrences")
                 for p_dict in high_jitter_periods: report.append(f"{list_item}{p_dict['ts']} ({p_dict['md_reason']})")
                 report.append("")
-        else: report.append(f"{list_item}未检测到明显超出阈值的问题时段。"); report.append("")
-        report.append(f"{section_prefix}总结")
+        else: report.append(f"{list_item}No significant problem periods detected exceeding thresholds."); report.append("")
+        report.append(f"{section_prefix}Summary")
         summary_points = []
-        # (总结文本生成逻辑基本不变，可以考虑加入 Jitter 的评价)
-        if overall_loss_perc == 0.0: summary_points.append(f"网络连通性极好，{bold_wrapper}未发生丢包{bold_wrapper}。")
-        elif overall_loss_perc <= current_loss_threshold : summary_points.append(f"网络连通性良好，整体丢包率低 ({code_wrapper}{overall_loss_perc:.2f}%{code_wrapper})。")
-        elif overall_loss_perc < 5.0: summary_points.append(f"网络存在少量丢包 ({code_wrapper}{overall_loss_perc:.2f}%{code_wrapper})，可能影响敏感应用。")
-        else: summary_points.append(f"网络丢包较为严重 ({code_wrapper}{overall_loss_perc:.2f}%{code_wrapper})，{bold_wrapper}需要关注{bold_wrapper}。")
+        # (Summary text generation logic remains largely unchanged, consider adding Jitter evaluation)
+        if overall_loss_perc == 0.0: summary_points.append(f"Network connectivity is excellent, {bold_wrapper}no packet loss occurred{bold_wrapper}.")
+        elif overall_loss_perc <= current_loss_threshold : summary_points.append(f"Network connectivity is good, overall loss rate is low ({code_wrapper}{overall_loss_perc:.2f}%{code_wrapper}).")
+        elif overall_loss_perc < 5.0: summary_points.append(f"Minor packet loss detected ({code_wrapper}{overall_loss_perc:.2f}%{code_wrapper}), may affect sensitive applications.")
+        else: summary_points.append(f"Significant packet loss ({code_wrapper}{overall_loss_perc:.2f}%{code_wrapper}), {bold_wrapper}requires attention{bold_wrapper}.")
 
-        if overall_avg_rtt < current_latency_threshold / 2 : summary_points.append(f"平均延迟较低 ({code_wrapper}{overall_avg_rtt:.1f}ms{code_wrapper})，表现{bold_wrapper}优秀{bold_wrapper}。")
-        elif overall_avg_rtt < current_latency_threshold : summary_points.append(f"平均延迟中等 ({code_wrapper}{overall_avg_rtt:.1f}ms{code_wrapper})，基本可用。")
-        else: summary_points.append(f"平均延迟较高 ({code_wrapper}{overall_avg_rtt:.1f}ms{code_wrapper})，可能影响实时交互体验。")
+        if overall_avg_rtt < current_latency_threshold / 2 : summary_points.append(f"Average latency is low ({code_wrapper}{overall_avg_rtt:.1f}ms{code_wrapper}), performance is {bold_wrapper}excellent{bold_wrapper}.")
+        elif overall_avg_rtt < current_latency_threshold : summary_points.append(f"Average latency is moderate ({code_wrapper}{overall_avg_rtt:.1f}ms{code_wrapper}), generally usable.")
+        else: summary_points.append(f"Average latency is high ({code_wrapper}{overall_avg_rtt:.1f}ms{code_wrapper}), may impact real-time interactive experience.")
 
-        # 基于 jitter_direct 和 stddev_rtt 评价抖动
-        jitter_eval = "稳定"; jitter_qual = "良好"
+        # Evaluate jitter based on jitter_direct and stddev_rtt
+        jitter_eval = "stable"; jitter_qual = "good"
         if overall_avg_jitter > current_jitter_direct_threshold or overall_avg_stddev_rtt > current_jitter_stddev_threshold:
-            jitter_eval = "抖动较大"; jitter_qual = f"{bold_wrapper}较差{bold_wrapper}"
+            jitter_eval = "has significant fluctuations"; jitter_qual = f"{bold_wrapper}poor{bold_wrapper}"
         elif overall_avg_jitter > current_jitter_direct_threshold / 2 or overall_avg_stddev_rtt > current_jitter_stddev_threshold / 2:
-            jitter_eval = "存在一定波动"; jitter_qual = "一般"
-        summary_points.append(f"网络延迟{jitter_eval} ({code_wrapper}Avg Jitter: {overall_avg_jitter:.1f}ms{code_wrapper}, {code_wrapper}Avg StdDev: {overall_avg_stddev_rtt:.1f}ms{code_wrapper})，稳定性{jitter_qual}。")
+            jitter_eval = "has some fluctuations"; jitter_qual = "fair"
+        summary_points.append(f"Network latency is {jitter_eval} ({code_wrapper}Avg Jitter: {overall_avg_jitter:.1f}ms{code_wrapper}, {code_wrapper}Avg StdDev: {overall_avg_stddev_rtt:.1f}ms{code_wrapper}), stability is {jitter_qual}.")
 
-        if high_loss_periods or high_latency_periods or high_jitter_periods: summary_points.append("检测到潜在的网络问题时段，详见上方列表。")
-        else: summary_points.append("根据当前使用的阈值，未发现明显的网络问题时段。")
+        if high_loss_periods or high_latency_periods or high_jitter_periods: summary_points.append("Potential network issue periods detected, see list above for details.")
+        else: summary_points.append("Based on current thresholds, no significant network issue periods were found.")
         for point in summary_points: report.append(f"{list_item}{point}")
 
     else:
-        # --- 纯文本报告生成 ---
-        sep = "=" * 70 # 调整分隔线长度
+        # --- Plain Text Report Generation ---
+        sep = "=" * 70 # Adjust separator length
         sub_sep = "-" * 70
         list_indent = "  "
 
         report.append(sep)
-        report.append(f" UDP Ping 日志分析报告: {metadata['target_ip']}:{metadata['target_port']}")
+        report.append(f" UDP Ping Log Analysis Report: {metadata['target_ip']}:{metadata['target_port']}")
         report.append(sep)
         report.append("")
 
-        report.append("--- 分析环境与监控配置 ---")
-        report.append(f"{list_indent}目标 IP:                 {metadata['target_ip']}")
-        report.append(f"{list_indent}目标端口:               {metadata['target_port']}")
-        report.append(f"{list_indent}日志文件:               {os.path.basename(log_file_path)}")
-        report.append(f"{list_indent}监控开始 (日志记录):     {metadata['start_time_str']}")
-        report.append(f"{list_indent}分析数据范围:           {first_timestamp} 至 {last_timestamp}")
-        report.append(f"{list_indent}总持续时间:             {duration}")
-        report.append(f"{list_indent}总测量次数 (日志行数):   {total_measurements}")
-        report.append(f"{list_indent}PING 包数描述:         {metadata['packets_per_measurement_desc']}")
-        if metadata['summary_interval_seconds'] != "未知 (仅周期模式)":
-            report.append(f"{list_indent}日志汇总间隔:           {metadata['summary_interval_seconds']} 秒")
-        report.append(f"{list_indent}PING 间隔:              {metadata['ping_interval_seconds']} 秒")
-        report.append(f"{list_indent}PING 大小:              {metadata['ping_size_bytes']} 字节")
-        report.append(f"{list_indent}Ping 超时:              {metadata['ping_timeout_seconds']} 秒")
-        report.append(f"{list_indent}分析脚本主机名:         {metadata['analysis_hostname']}")
-        report.append(f"{list_indent}分析脚本时区:           {metadata['analysis_timezone']}")
+        report.append("--- Analysis Environment & Monitoring Configuration ---")
+        report.append(f"{list_indent}Target IP:                 {metadata['target_ip']}")
+        report.append(f"{list_indent}Target Port:               {metadata['target_port']}")
+        report.append(f"{list_indent}Log File:                  {os.path.basename(log_file_path)}")
+        report.append(f"{list_indent}Monitoring Started (Log Time): {metadata['start_time_str']}")
+        report.append(f"{list_indent}Analysis Data Range:       {first_timestamp} to {last_timestamp}")
+        report.append(f"{list_indent}Total Duration:            {duration}")
+        report.append(f"{list_indent}Total Measurements (Log Lines): {total_measurements}")
+        report.append(f"{list_indent}Packets Description:       {metadata['packets_per_measurement_desc']}")
+        if metadata['summary_interval_seconds'] != "Unknown (Periodic mode only)":
+            report.append(f"{list_indent}Log Summary Interval:      {metadata['summary_interval_seconds']} seconds")
+        report.append(f"{list_indent}Ping Interval:             {metadata['ping_interval_seconds']} seconds")
+        report.append(f"{list_indent}Ping Payload Size:         {metadata['ping_size_bytes']} bytes")
+        report.append(f"{list_indent}Ping Timeout:              {metadata['ping_timeout_seconds']} seconds")
+        report.append(f"{list_indent}Analysis Script Hostname:  {metadata['analysis_hostname']}")
+        report.append(f"{list_indent}Analysis Script Timezone:  {metadata['analysis_timezone']}")
         report.append("")
 
-        report.append("--- 整体统计 ---")
-        report.append(f"{list_indent}总发送/接收:            {total_sent} / {total_received}")
-        report.append(f"{list_indent}整体平均丢包率:         {overall_loss_perc:.2f}%")
-        report.append(f"{list_indent}整体平均 RTT:           {overall_avg_rtt:.3f} ms")
-        report.append(f"{list_indent}整体最小 RTT:           {overall_min_rtt:.3f} ms")
-        report.append(f"{list_indent}整体最大 RTT:           {overall_max_rtt:.3f} ms")
-        report.append(f"{list_indent}整体平均标准差(StdDev): {overall_avg_stddev_rtt:.3f} ms")
-        report.append(f"{list_indent}整体平均抖动(Jitter):   {overall_avg_jitter:.3f} ms") # 新增 Jitter
+        report.append("--- Overall Statistics ---")
+        report.append(f"{list_indent}Total Sent/Received:       {total_sent} / {total_received}")
+        report.append(f"{list_indent}Overall Average Loss Rate: {overall_loss_perc:.2f}%")
+        report.append(f"{list_indent}Overall Average RTT:       {overall_avg_rtt:.3f} ms")
+        report.append(f"{list_indent}Overall Minimum RTT:       {overall_min_rtt:.3f} ms")
+        report.append(f"{list_indent}Overall Maximum RTT:       {overall_max_rtt:.3f} ms")
+        report.append(f"{list_indent}Overall Avg StdDev:        {overall_avg_stddev_rtt:.3f} ms")
+        report.append(f"{list_indent}Overall Avg Jitter:        {overall_avg_jitter:.3f} ms") # Added Jitter
         report.append("")
 
-        report.append("--- 分析阈值 ---")
+        report.append("--- Analysis Thresholds ---")
         if dynamic_thresholds_calculated:
-            report.append(f"{list_indent}模式: 动态阈值 (基于日志初始数据计算)")
-            report.append(f"{list_indent}  - 基线 RTT:           {baseline_rtt:.1f} ms")
-            report.append(f"{list_indent}  - 基线 StdDev:        {baseline_stddev:.1f} ms")
-            report.append(f"{list_indent}  - 基线 Jitter:        {baseline_jitter:.1f} ms") # 新增 Jitter 基线
-            report.append(f"{list_indent}使用的阈值:")
-            report.append(f"{list_indent}  - 高延迟:             > {current_latency_threshold:.1f} ms")
-            report.append(f"{list_indent}  - 高抖动 (Jitter):    > {current_jitter_direct_threshold:.1f} ms") # 新增 Jitter 阈值
-            report.append(f"{list_indent}  - 高抖动 (StdDev):    > {current_jitter_stddev_threshold:.1f} ms")
-            report.append(f"{list_indent}  - 高抖动 (Max/Avg Ratio): > {current_jitter_max_avg_ratio:.1f}")
+            report.append(f"{list_indent}Mode: Dynamic Thresholds (based on initial log data)")
+            report.append(f"{list_indent}  - Baseline RTT:           {baseline_rtt:.1f} ms")
+            report.append(f"{list_indent}  - Baseline StdDev:        {baseline_stddev:.1f} ms")
+            report.append(f"{list_indent}  - Baseline Jitter:        {baseline_jitter:.1f} ms") # Added Jitter baseline
+            report.append(f"{list_indent}Thresholds Used:")
+            report.append(f"{list_indent}  - High Latency:             > {current_latency_threshold:.1f} ms")
+            report.append(f"{list_indent}  - High Jitter (Direct):    > {current_jitter_direct_threshold:.1f} ms") # Added Jitter threshold
+            report.append(f"{list_indent}  - High Jitter (StdDev):    > {current_jitter_stddev_threshold:.1f} ms")
+            report.append(f"{list_indent}  - High Jitter (Max/Avg Ratio): > {current_jitter_max_avg_ratio:.1f}")
         else:
-            report.append(f"{list_indent}模式: 固定阈值 (原因: {baseline_fallback_reason})")
-            report.append(f"{list_indent}使用的阈值:")
-            report.append(f"{list_indent}  - 高延迟:             > {current_latency_threshold:.1f} ms")
-            report.append(f"{list_indent}  - 高抖动 (Jitter):    > {current_jitter_direct_threshold:.1f} ms") # 新增 Jitter 阈值
-            report.append(f"{list_indent}  - 高抖动 (StdDev):    > {current_jitter_stddev_threshold:.1f} ms")
-            report.append(f"{list_indent}  - 高抖动 (Max/Avg Ratio): > {current_jitter_max_avg_ratio:.1f}")
-        report.append(f"{list_indent}  - 高丢包率:           > {current_loss_threshold:.1f}%")
+            report.append(f"{list_indent}Mode: Fixed Thresholds (Reason: {baseline_fallback_reason})")
+            report.append(f"{list_indent}Thresholds Used:")
+            report.append(f"{list_indent}  - High Latency:             > {current_latency_threshold:.1f} ms")
+            report.append(f"{list_indent}  - High Jitter (Direct):    > {current_jitter_direct_threshold:.1f} ms") # Added Jitter threshold
+            report.append(f"{list_indent}  - High Jitter (StdDev):    > {current_jitter_stddev_threshold:.1f} ms")
+            report.append(f"{list_indent}  - High Jitter (Max/Avg Ratio): > {current_jitter_max_avg_ratio:.1f}")
+        report.append(f"{list_indent}  - High Loss Rate:           > {current_loss_threshold:.1f}%")
         report.append("")
 
-        report.append("--- 潜在问题时段 ---")
+        report.append("--- Potential Problem Periods ---")
         if not (high_loss_periods or high_latency_periods or high_jitter_periods):
-            report.append(f"{list_indent}未检测到明显超出阈值的问题时段。")
+            report.append(f"{list_indent}No significant problem periods detected exceeding thresholds.")
         else:
             if high_loss_periods:
-                report.append(f"\n{list_indent}高丢包 (>{current_loss_threshold:.1f}%) - {len(high_loss_periods)} 次:")
+                report.append(f"\n{list_indent}High Loss (>{current_loss_threshold:.1f}%) - {len(high_loss_periods)} occurrences:")
                 for p in high_loss_periods: report.append(f"{list_indent}  - {p}")
             if high_latency_periods:
-                report.append(f"\n{list_indent}高延迟 (>{current_latency_threshold:.1f}ms) - {len(high_latency_periods)} 次:")
+                report.append(f"\n{list_indent}High Latency (>{current_latency_threshold:.1f}ms) - {len(high_latency_periods)} occurrences:")
                 for p in high_latency_periods: report.append(f"{list_indent}  - {p}")
             if high_jitter_periods:
-                report.append(f"\n{list_indent}高抖动 (Jitter>{current_jitter_direct_threshold:.1f}ms 或 StdDev>{current_jitter_stddev_threshold:.1f}ms 或 Max/Avg>{current_jitter_max_avg_ratio:.1f}) - {len(high_jitter_periods)} 次:")
+                report.append(f"\n{list_indent}High Jitter (Jitter>{current_jitter_direct_threshold:.1f}ms or StdDev>{current_jitter_stddev_threshold:.1f}ms or Max/Avg>{current_jitter_max_avg_ratio:.1f}) - {len(high_jitter_periods)} occurrences:")
                 for p_dict in high_jitter_periods: report.append(f"{list_indent}  - {p_dict['ts']} ({p_dict['reason']})")
         report.append("")
 
-        report.append("--- 总结 ---")
+        report.append("--- Summary ---")
         summary_points = []
-        # (总结文本生成逻辑与 Markdown 版本一致)
-        if overall_loss_perc == 0.0: summary_points.append("网络连通性极好，未发生丢包。")
-        elif overall_loss_perc <= current_loss_threshold : summary_points.append(f"网络连通性良好，整体丢包率低 ({overall_loss_perc:.2f}%)。")
-        elif overall_loss_perc < 5.0: summary_points.append(f"网络存在少量丢包 ({overall_loss_perc:.2f}%)，可能影响敏感应用。")
-        else: summary_points.append(f"网络丢包较为严重 ({overall_loss_perc:.2f}%)，需要关注。")
+        # (Summary text generation logic is consistent with Markdown version)
+        if overall_loss_perc == 0.0: summary_points.append("Network connectivity is excellent, no packet loss occurred.")
+        elif overall_loss_perc <= current_loss_threshold : summary_points.append(f"Network connectivity is good, overall loss rate is low ({overall_loss_perc:.2f}%).")
+        elif overall_loss_perc < 5.0: summary_points.append(f"Minor packet loss detected ({overall_loss_perc:.2f}%), may affect sensitive applications.")
+        else: summary_points.append(f"Significant packet loss ({overall_loss_perc:.2f}%), requires attention.")
 
-        if overall_avg_rtt < current_latency_threshold / 2 : summary_points.append(f"平均延迟较低 ({overall_avg_rtt:.1f}ms)，表现优秀。")
-        elif overall_avg_rtt < current_latency_threshold : summary_points.append(f"平均延迟中等 ({overall_avg_rtt:.1f}ms)，基本可用。")
-        else: summary_points.append(f"平均延迟较高 ({overall_avg_rtt:.1f}ms)，可能影响实时交互体验。")
+        if overall_avg_rtt < current_latency_threshold / 2 : summary_points.append(f"Average latency is low ({overall_avg_rtt:.1f}ms), performance is excellent.")
+        elif overall_avg_rtt < current_latency_threshold : summary_points.append(f"Average latency is moderate ({overall_avg_rtt:.1f}ms), generally usable.")
+        else: summary_points.append(f"Average latency is high ({overall_avg_rtt:.1f}ms), may impact real-time interactive experience.")
 
-        jitter_eval = "稳定"; jitter_qual = "良好"
+        jitter_eval = "stable"; jitter_qual = "good"
         if overall_avg_jitter > current_jitter_direct_threshold or overall_avg_stddev_rtt > current_jitter_stddev_threshold:
-            jitter_eval = "抖动较大"; jitter_qual = "较差"
+            jitter_eval = "has significant fluctuations"; jitter_qual = "poor"
         elif overall_avg_jitter > current_jitter_direct_threshold / 2 or overall_avg_stddev_rtt > current_jitter_stddev_threshold / 2:
-            jitter_eval = "存在一定波动"; jitter_qual = "一般"
-        summary_points.append(f"网络延迟{jitter_eval} (Avg Jitter: {overall_avg_jitter:.1f}ms, Avg StdDev: {overall_avg_stddev_rtt:.1f}ms)，稳定性{jitter_qual}。")
+            jitter_eval = "has some fluctuations"; jitter_qual = "fair"
+        summary_points.append(f"Network latency is {jitter_eval} (Avg Jitter: {overall_avg_jitter:.1f}ms, Avg StdDev: {overall_avg_stddev_rtt:.1f}ms), stability is {jitter_qual}.")
 
-        if high_loss_periods or high_latency_periods or high_jitter_periods: summary_points.append("检测到潜在的网络问题时段，详见上方列表。")
-        else: summary_points.append("根据当前使用的阈值，未发现明显的网络问题时段。")
+        if high_loss_periods or high_latency_periods or high_jitter_periods: summary_points.append("Potential network issue periods detected, see list above for details.")
+        else: summary_points.append("Based on current thresholds, no significant network issue periods were found.")
         for point in summary_points: report.append(f"{list_indent}- {point}")
 
         report.append("\n" + sep)
 
     return "\n".join(report)
 
-# --- 主程序入口 (保持不变) ---
+# --- Main program entry point (unchanged) ---
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f"用法: python {os.path.basename(sys.argv[0])} <udp_ping_log_file_path> [--md]")
+        print(f"Usage: python {os.path.basename(sys.argv[0])} <udp_ping_log_file_path> [--md]")
         sys.exit(1)
 
     log_file = sys.argv[1]
@@ -478,16 +478,16 @@ if __name__ == "__main__":
 
     if output_markdown:
         base_name = os.path.splitext(os.path.basename(log_file))[0]
-        # 移除可能存在的 '_client' 后缀
+        # Remove possible '_client' suffix
         if base_name.endswith('_client'): base_name = base_name[:-7]
-        md_filename = f"{base_name}_udp_report.md" # 添加 _udp_ 区分
+        md_filename = f"{base_name}_udp_report.md" # Add _udp_ to differentiate
         try:
             with open(md_filename, 'w', encoding='utf-8') as f:
                 f.write(analysis_report_content)
-            print(f"Markdown 报告已保存到: {md_filename}")
+            print(f"Markdown report saved to: {md_filename}")
         except IOError as e:
-            print(f"错误: 无法写入 Markdown 文件 {md_filename}: {e}", file=sys.stderr)
-            print("\n--- 分析报告 (因无法写入文件而打印到控制台) ---")
+            print(f"Error: Unable to write Markdown file {md_filename}: {e}", file=sys.stderr)
+            print("\n--- Analysis Report (printed to console due to file write error) ---")
             print(analysis_report_content)
     else:
         print(analysis_report_content)

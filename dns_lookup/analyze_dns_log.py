@@ -9,28 +9,28 @@ import statistics
 import socket
 import time
 
-# --- 可配置阈值 ---
-HIGH_DNS_TIME_THRESHOLD = 500.0        # 高DNS解析时间阈值 (ms)
-ERROR_RATE_THRESHOLD = 5.0             # 错误率阈值 (%)
-SLOW_DNS_THRESHOLD = 200.0             # 慢DNS解析阈值 (ms)
+# --- Configurable Thresholds ---
+HIGH_DNS_TIME_THRESHOLD = 500.0        # High DNS resolution time threshold (ms)
+ERROR_RATE_THRESHOLD = 5.0             # Error rate threshold (%)
+SLOW_DNS_THRESHOLD = 200.0             # Slow DNS resolution threshold (ms)
 
-# --- 动态基线计算参数 ---
+# --- Dynamic Baseline Calculation Parameters ---
 MAX_BASELINE_CANDIDATES = 100
 MIN_BASELINE_SAMPLES = 20
-STABLE_SUCCESS_THRESHOLD = 95.0  # 成功率阈值
+STABLE_SUCCESS_THRESHOLD = 95.0  # Success rate threshold
 
-# --- 动态阈值计算参数 ---
+# --- Dynamic Threshold Calculation Parameters ---
 DYNAMIC_DNS_TIME_FACTOR = 2.5
 DYNAMIC_DNS_TIME_OFFSET = 50.0
 MIN_DYNAMIC_DNS_TIME_THRESHOLD = 100.0
 
-# --- 获取系统信息的函数 ---
+# --- Functions to get system information ---
 def get_hostname():
     try:
         return socket.gethostname()
     except socket.error as e:
-        print(f"警告: 无法获取主机名: {e}", file=sys.stderr)
-        return "未知 (无法获取)"
+        print(f"Warning: Unable to get hostname: {e}", file=sys.stderr)
+        return "Unknown (Unable to fetch)"
 
 def get_timezone_info():
     try:
@@ -57,12 +57,12 @@ def get_timezone_info():
         else:
             return offset_str
     except Exception as e:
-        print(f"警告: 无法获取时区信息: {e}", file=sys.stderr)
-        return "未知 (无法获取)"
+        print(f"Warning: Unable to get timezone information: {e}", file=sys.stderr)
+        return "Unknown (Unable to fetch)"
 
-# --- 解析日志行的函数 ---
+# --- Function to parse log lines ---
 def parse_log_line(line):
-    # 解析格式: 解析时间(ms) | 解析IP | 所有IP地址 | 状态
+    # Parse format: Resolution Time(ms) | Resolved IP | All IP Addresses | Status
     pattern = re.compile(
         r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\|\s*"
         r"([\d.]+|N/A)\s*\|\s*"
@@ -76,7 +76,7 @@ def parse_log_line(line):
         try:
             timestamp = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
             
-            # 解析各个字段
+            # Parse individual fields
             dns_time = match.group(2).strip()
             resolved_ip = match.group(3).strip()
             all_ips = match.group(4).strip()
@@ -90,16 +90,16 @@ def parse_log_line(line):
                 "status": status
             }
         except (ValueError, IndexError) as e:
-            print(f"警告: 解析数据行时出错: {line.strip()} - {e}", file=sys.stderr)
+            print(f"Warning: Error parsing data line: {line.strip()} - {e}", file=sys.stderr)
             return None
     return None
 
 def is_success_status(status):
-    """判断状态是否为成功"""
+    """Check if the status indicates success"""
     return status == "SUCCESS"
 
 def is_numeric(value):
-    """检查值是否为数字"""
+    """Check if the value is numeric"""
     if value == "N/A":
         return False
     try:
@@ -109,7 +109,7 @@ def is_numeric(value):
         return False
 
 def safe_float(value, default=0.0):
-    """安全转换为浮点数"""
+    """Safely convert to float"""
     if not is_numeric(value):
         return default
     try:
@@ -118,50 +118,50 @@ def safe_float(value, default=0.0):
         return default
 
 def extract_unique_ips(all_ips_str):
-    """从所有IP字符串中提取唯一IP地址"""
+    """Extract unique IP addresses from the all_ips string"""
     if all_ips_str == "N/A" or not all_ips_str:
         return []
     
-    # 移除方括号并分割
+    # Remove brackets and split
     clean_str = all_ips_str.replace('[', '').replace(']', '')
     ips = [ip.strip() for ip in clean_str.split(',') if ip.strip()]
     
-    # 过滤有效IP地址
+    # Filter valid IP addresses
     valid_ips = []
     ip_pattern = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
     for ip in ips:
         if ip_pattern.match(ip):
             valid_ips.append(ip)
     
-    return list(set(valid_ips))  # 去重
+    return list(set(valid_ips))  # Deduplicate
 
 def categorize_error(status):
-    """分类错误类型"""
+    """Categorize error type"""
     if "TIMEOUT" in status:
-        return "超时错误"
+        return "Timeout Error"
     elif "DNS_ERROR" in status:
-        return "DNS解析错误"
+        return "DNS Resolution Error"
     elif "NSLOOKUP_ERROR" in status:
-        return "nslookup错误"
+        return "nslookup Error"
     elif "NO_IP_FOUND" in status:
-        return "未找到IP地址"
+        return "No IP Address Found"
     else:
-        return "其他错误"
+        return "Other Error"
 
 def analyze_dns_log(log_file_path, markdown_format=False):
-    """分析 DNS 日志文件并生成报告内容"""
+    """Analyze DNS log file and generate report content"""
     
     analysis_hostname = get_hostname()
     analysis_timezone = get_timezone_info()
     
     metadata = {
-        "target_domain": "未知",
-        "dns_server": "未知",
-        "system_dns_servers": "未知",
-        "source_public_ip": "未知 (未在日志中找到)",
-        "start_time_str": "未知",
-        "interval_seconds": "未知",
-        "dns_timeout": "未知",
+        "target_domain": "Unknown",
+        "dns_server": "Unknown",
+        "system_dns_servers": "Unknown",
+        "source_public_ip": "Unknown (Not found in log)",
+        "start_time_str": "Unknown",
+        "interval_seconds": "Unknown",
+        "dns_timeout": "Unknown",
         "analysis_hostname": analysis_hostname,
         "analysis_timezone": analysis_timezone,
     }
@@ -178,38 +178,38 @@ def analyze_dns_log(log_file_path, markdown_format=False):
                     continue
                 
                 if not header_parsed:
-                    # 解析头部信息
-                    match_source_ip = re.match(r".*服务器源公网 IP:\s*(.*)", line)
+                    # Parse header information
+                    match_source_ip = re.match(r".*Server Source Public IP:\s*(.*)", line)
                     if match_source_ip:
                         metadata["source_public_ip"] = match_source_ip.group(1).strip()
                         continue
                     
-                    match_domain = re.match(r".*目标域名:\s*(.*)", line)
+                    match_domain = re.match(r".*Target Domain:\s*(.*)", line)
                     if match_domain:
                         metadata["target_domain"] = match_domain.group(1).strip()
                         continue
                     
-                    match_dns_server = re.match(r".*DNS 服务器:\s*(.*)", line)
+                    match_dns_server = re.match(r".*DNS Server:\s*(.*)", line)
                     if match_dns_server:
                         metadata["dns_server"] = match_dns_server.group(1).strip()
                         continue
                     
-                    match_system_dns = re.match(r".*系统 DNS 服务器:\s*(.*)", line)
+                    match_system_dns = re.match(r".*System DNS Servers:\s*(.*)", line)
                     if match_system_dns:
                         metadata["system_dns_servers"] = match_system_dns.group(1).strip()
                         continue
                     
-                    match_start = re.match(r".*监控启动于:\s*(.*)", line)
+                    match_start = re.match(r".*Monitoring started at:\s*(.*)", line)
                     if match_start:
                         metadata["start_time_str"] = match_start.group(1).strip()
                         continue
                     
-                    match_interval = re.match(r".*测量间隔:\s*(\d+)\s*秒", line)
+                    match_interval = re.match(r".*Measurement Interval:\s*(\d+)\s*seconds", line)
                     if match_interval:
                         metadata["interval_seconds"] = match_interval.group(1).strip()
                         continue
                     
-                    match_timeout = re.match(r".*DNS 超时:\s*(\d+)\s*秒", line)
+                    match_timeout = re.match(r".*DNS Timeout:\s*(\d+)\s*seconds", line)
                     if match_timeout:
                         metadata["dns_timeout"] = match_timeout.group(1).strip()
                         continue
@@ -221,7 +221,7 @@ def analyze_dns_log(log_file_path, markdown_format=False):
                             data_section_started = True
                         continue
                     
-                    if "解析时间(ms)" in line:
+                    if "Resolution Time(ms)" in line:
                         data_section_started = True
                         header_parsed = True
                         continue
@@ -232,20 +232,20 @@ def analyze_dns_log(log_file_path, markdown_format=False):
                         data_records.append(record)
     
     except FileNotFoundError:
-        return f"错误: 文件未找到: {log_file_path}"
+        return f"Error: File not found: {log_file_path}"
     except Exception as e:
-        return f"错误: 读取或解析文件时发生异常: {e}"
+        return f"Error: Exception occurred while reading or parsing file: {e}"
     
     if not data_records:
-        return f"错误: 在文件 {log_file_path} 中未找到有效的数据记录。"
+        return f"Error: No valid data records found in file {log_file_path}."
     
-    # --- 分析逻辑 ---
+    # --- Analysis Logic ---
     total_queries = len(data_records)
     first_timestamp = data_records[0]['timestamp']
     last_timestamp = data_records[-1]['timestamp']
     duration = last_timestamp - first_timestamp
     
-    # 统计成功和失败
+    # Count successes and failures
     success_records = [r for r in data_records if is_success_status(r['status'])]
     error_records = [r for r in data_records if not is_success_status(r['status'])]
     
@@ -254,7 +254,7 @@ def analyze_dns_log(log_file_path, markdown_format=False):
     success_rate = (success_count / total_queries) * 100.0 if total_queries > 0 else 0.0
     error_rate = (error_count / total_queries) * 100.0 if total_queries > 0 else 0.0
     
-    # 计算时间统计（仅成功的查询）
+    # Calculate time statistics (successful queries only)
     if success_records:
         dns_times = [safe_float(r['dns_time']) for r in success_records if is_numeric(r['dns_time'])]
         
@@ -265,7 +265,7 @@ def analyze_dns_log(log_file_path, markdown_format=False):
     else:
         avg_dns_time = min_dns_time = max_dns_time = median_dns_time = 0.0
     
-    # 分析IP地址变化
+    # Analyze IP address changes
     unique_ips = set()
     ip_changes = []
     last_ip = None
@@ -281,17 +281,17 @@ def analyze_dns_log(log_file_path, markdown_format=False):
             last_ip = r['resolved_ip']
             unique_ips.add(r['resolved_ip'])
         
-        # 收集所有IP地址
+        # Collect all IP addresses
         all_ips = extract_unique_ips(r['all_ips'])
         unique_ips.update(all_ips)
     
-    # 错误类型统计
+    # Error type statistics
     error_types = {}
     for r in error_records:
         error_type = categorize_error(r['status'])
         error_types[error_type] = error_types.get(error_type, 0) + 1
     
-    # 动态阈值计算
+    # Dynamic threshold calculation
     baseline_dns_time = None
     dynamic_thresholds_calculated = False
     baseline_fallback_reason = ""
@@ -312,42 +312,42 @@ def analyze_dns_log(log_file_path, markdown_format=False):
                 )
             else:
                 dynamic_thresholds_calculated = False
-                baseline_fallback_reason = "基线数据中缺少有效的时间数据"
+                baseline_fallback_reason = "Missing valid time data in baseline"
         except statistics.StatisticsError as e:
             dynamic_thresholds_calculated = False
-            baseline_fallback_reason = f"基线统计计算错误: {e}"
+            baseline_fallback_reason = f"Baseline statistics calculation error: {e}"
     else:
         dynamic_thresholds_calculated = False
         if len(data_records) < MIN_BASELINE_SAMPLES:
-            baseline_fallback_reason = f"日志数据不足 (少于 {MIN_BASELINE_SAMPLES} 条)"
+            baseline_fallback_reason = f"Insufficient log data (less than {MIN_BASELINE_SAMPLES} records)"
         else:
-            baseline_fallback_reason = f"日志初始 {MAX_BASELINE_CANDIDATES} 条记录中成功样本不足 (< {MIN_BASELINE_SAMPLES} 条)"
+            baseline_fallback_reason = f"Insufficient successful samples in the initial {MAX_BASELINE_CANDIDATES} log records (< {MIN_BASELINE_SAMPLES})"
     
     if not dynamic_thresholds_calculated:
         current_dns_time_threshold = HIGH_DNS_TIME_THRESHOLD
     
     current_error_rate_threshold = ERROR_RATE_THRESHOLD
     
-    # 识别问题时段
+    # Identify problematic periods
     slow_dns_periods = []
     error_periods = []
     
     for r in data_records:
         ts = r['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         
-        # 检查DNS解析时间
+        # Check DNS resolution time
         if is_numeric(r['dns_time']) and safe_float(r['dns_time']) > current_dns_time_threshold:
-            slow_dns_periods.append(f"{ts} (DNS时间: {r['dns_time']}ms)")
+            slow_dns_periods.append(f"{ts} (DNS Time: {r['dns_time']}ms)")
         
-        # 检查错误
+        # Check for errors
         if not is_success_status(r['status']):
-            error_periods.append(f"{ts} (状态: {r['status']})")
+            error_periods.append(f"{ts} (Status: {r['status']})")
     
-    # --- 生成报告内容 ---
+    # --- Generate Report Content ---
     report = []
     
     if markdown_format:
-        # Markdown 报告
+        # Markdown Report
         sep_line = "---"
         title_prefix = "# "
         section_prefix = "## "
@@ -356,234 +356,234 @@ def analyze_dns_log(log_file_path, markdown_format=False):
         code_wrapper = "`"
         bold_wrapper = "**"
         
-        report.append(f"{title_prefix}DNS 解析监控分析报告: {code_wrapper}{metadata['target_domain']}{code_wrapper}")
+        report.append(f"{title_prefix}DNS Resolution Monitoring Analysis Report: {code_wrapper}{metadata['target_domain']}{code_wrapper}")
         report.append(sep_line)
         
-        report.append(f"{section_prefix}监控配置与环境")
-        report.append(f"{list_item}{bold_wrapper}目标域名:{bold_wrapper} {code_wrapper}{metadata['target_domain']}{code_wrapper}")
-        report.append(f"{list_item}{bold_wrapper}DNS 服务器:{bold_wrapper} {code_wrapper}{metadata['dns_server']}{code_wrapper}")
-        if metadata['system_dns_servers'] != "未知":
-            report.append(f"{list_item}{bold_wrapper}系统 DNS 服务器:{bold_wrapper} {metadata['system_dns_servers']}")
-        report.append(f"{list_item}{bold_wrapper}源公网 IP:{bold_wrapper} {code_wrapper}{metadata['source_public_ip']}{code_wrapper}")
-        report.append(f"{list_item}日志文件: {code_wrapper}{os.path.basename(log_file_path)}{code_wrapper}")
-        report.append(f"{list_item}监控开始: {metadata['start_time_str']}")
-        report.append(f"{list_item}分析数据范围: {code_wrapper}{first_timestamp}{code_wrapper} 至 {code_wrapper}{last_timestamp}{code_wrapper}")
-        report.append(f"{list_item}总持续时间: {duration}")
-        report.append(f"{list_item}总查询次数: {total_queries}")
-        report.append(f"{list_item}测量间隔: {metadata['interval_seconds']} 秒")
-        report.append(f"{list_item}DNS 超时: {metadata['dns_timeout']} 秒")
-        report.append(f"{list_item}分析主机名: {code_wrapper}{metadata['analysis_hostname']}{code_wrapper}")
-        report.append(f"{list_item}分析时区: {metadata['analysis_timezone']}")
+        report.append(f"{section_prefix}Monitoring Configuration and Environment")
+        report.append(f"{list_item}{bold_wrapper}Target Domain:{bold_wrapper} {code_wrapper}{metadata['target_domain']}{code_wrapper}")
+        report.append(f"{list_item}{bold_wrapper}DNS Server:{bold_wrapper} {code_wrapper}{metadata['dns_server']}{code_wrapper}")
+        if metadata['system_dns_servers'] != "Unknown":
+            report.append(f"{list_item}{bold_wrapper}System DNS Servers:{bold_wrapper} {metadata['system_dns_servers']}")
+        report.append(f"{list_item}{bold_wrapper}Source Public IP:{bold_wrapper} {code_wrapper}{metadata['source_public_ip']}{code_wrapper}")
+        report.append(f"{list_item}Log File: {code_wrapper}{os.path.basename(log_file_path)}{code_wrapper}")
+        report.append(f"{list_item}Monitoring Start: {metadata['start_time_str']}")
+        report.append(f"{list_item}Analyzed Data Range: {code_wrapper}{first_timestamp}{code_wrapper} to {code_wrapper}{last_timestamp}{code_wrapper}")
+        report.append(f"{list_item}Total Duration: {duration}")
+        report.append(f"{list_item}Total Queries: {total_queries}")
+        report.append(f"{list_item}Measurement Interval: {metadata['interval_seconds']} seconds")
+        report.append(f"{list_item}DNS Timeout: {metadata['dns_timeout']} seconds")
+        report.append(f"{list_item}Analysis Hostname: {code_wrapper}{metadata['analysis_hostname']}{code_wrapper}")
+        report.append(f"{list_item}Analysis Timezone: {metadata['analysis_timezone']}")
         report.append("")
         
-        report.append(f"{section_prefix}整体统计")
-        report.append(f"{list_item}总查询数: {total_queries}")
-        report.append(f"{list_item}成功查询数: {success_count}")
-        report.append(f"{list_item}失败查询数: {error_count}")
-        report.append(f"{list_item}成功率: {bold_wrapper}{success_rate:.2f}%{bold_wrapper}")
-        report.append(f"{list_item}错误率: {bold_wrapper}{error_rate:.2f}%{bold_wrapper}")
-        report.append(f"{list_item}平均DNS解析时间: {code_wrapper}{avg_dns_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}最小DNS解析时间: {code_wrapper}{min_dns_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}最大DNS解析时间: {code_wrapper}{max_dns_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}中位数DNS解析时间: {code_wrapper}{median_dns_time:.1f} ms{code_wrapper}")
-        report.append(f"{list_item}解析到的唯一IP数量: {len(unique_ips)}")
+        report.append(f"{section_prefix}Overall Statistics")
+        report.append(f"{list_item}Total Queries: {total_queries}")
+        report.append(f"{list_item}Successful Queries: {success_count}")
+        report.append(f"{list_item}Failed Queries: {error_count}")
+        report.append(f"{list_item}Success Rate: {bold_wrapper}{success_rate:.2f}%{bold_wrapper}")
+        report.append(f"{list_item}Error Rate: {bold_wrapper}{error_rate:.2f}%{bold_wrapper}")
+        report.append(f"{list_item}Average DNS Resolution Time: {code_wrapper}{avg_dns_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Minimum DNS Resolution Time: {code_wrapper}{min_dns_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Maximum DNS Resolution Time: {code_wrapper}{max_dns_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Median DNS Resolution Time: {code_wrapper}{median_dns_time:.1f} ms{code_wrapper}")
+        report.append(f"{list_item}Number of Unique IPs Resolved: {len(unique_ips)}")
         if unique_ips:
-            report.append(f"{list_item}所有解析IP: {', '.join(sorted(unique_ips))}")
+            report.append(f"{list_item}All Resolved IPs: {', '.join(sorted(unique_ips))}")
         report.append("")
         
         if ip_changes:
-            report.append(f"{section_prefix}IP地址变化记录")
-            report.append(f"{list_item}检测到 {len(ip_changes)} 次IP地址变化:")
+            report.append(f"{section_prefix}IP Address Change Log")
+            report.append(f"{list_item}Detected {len(ip_changes)} IP address changes:")
             for change in ip_changes:
                 report.append(f"    {list_item}{change['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}: {change['old_ip']} → {change['new_ip']}")
             report.append("")
         
         if error_types:
-            report.append(f"{section_prefix}错误类型统计")
+            report.append(f"{section_prefix}Error Type Statistics")
             for error_type, count in sorted(error_types.items(), key=lambda x: x[1], reverse=True):
                 percentage = (count / total_queries) * 100
-                report.append(f"{list_item}{error_type}: {count} 次 ({percentage:.1f}%)")
+                report.append(f"{list_item}{error_type}: {count} times ({percentage:.1f}%)")
             report.append("")
         
-        report.append(f"{section_prefix}分析阈值")
+        report.append(f"{section_prefix}Analysis Thresholds")
         if dynamic_thresholds_calculated:
-            report.append(f"{list_item}使用 {bold_wrapper}动态阈值{bold_wrapper} (基于日志初始数据计算):")
-            report.append(f"    {list_item}基线DNS解析时间: {code_wrapper}{baseline_dns_time:.1f} ms{code_wrapper}")
-            report.append(f"    {list_item}高DNS解析时间阈值: > {code_wrapper}{current_dns_time_threshold:.1f} ms{code_wrapper}")
+            report.append(f"{list_item}Using {bold_wrapper}Dynamic Thresholds{bold_wrapper} (calculated based on initial log data):")
+            report.append(f"    {list_item}Baseline DNS Resolution Time: {code_wrapper}{baseline_dns_time:.1f} ms{code_wrapper}")
+            report.append(f"    {list_item}High DNS Resolution Time Threshold: > {code_wrapper}{current_dns_time_threshold:.1f} ms{code_wrapper}")
         else:
-            report.append(f"{list_item}使用 {bold_wrapper}固定阈值{bold_wrapper} (原因: {baseline_fallback_reason}):")
-            report.append(f"    {list_item}高DNS解析时间阈值: > {code_wrapper}{current_dns_time_threshold:.1f} ms{code_wrapper}")
+            report.append(f"{list_item}Using {bold_wrapper}Fixed Thresholds{bold_wrapper} (reason: {baseline_fallback_reason}):")
+            report.append(f"    {list_item}High DNS Resolution Time Threshold: > {code_wrapper}{current_dns_time_threshold:.1f} ms{code_wrapper}")
         
-        report.append(f"    {list_item}高错误率阈值: > {code_wrapper}{current_error_rate_threshold:.1f}%{code_wrapper}")
+        report.append(f"    {list_item}High Error Rate Threshold: > {code_wrapper}{current_error_rate_threshold:.1f}%{code_wrapper}")
         report.append("")
         
-        report.append(f"{section_prefix}潜在问题时段")
+        report.append(f"{section_prefix}Potential Problem Periods")
         if slow_dns_periods or error_periods:
             if slow_dns_periods:
-                report.append(f"{subsection_prefix}慢DNS解析 (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} 次")
+                report.append(f"{subsection_prefix}Slow DNS Resolution (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} times")
                 for p in slow_dns_periods:
                     report.append(f"{list_item}{p}")
                 report.append("")
             
             if error_periods:
-                report.append(f"{subsection_prefix}DNS解析错误 - {len(error_periods)} 次")
+                report.append(f"{subsection_prefix}DNS Resolution Errors - {len(error_periods)} times")
                 for p in error_periods:
                     report.append(f"{list_item}{p}")
                 report.append("")
         else:
-            report.append(f"{list_item}未检测到明显超出阈值的问题时段。")
+            report.append(f"{list_item}No significant problem periods exceeding thresholds detected.")
             report.append("")
         
-        report.append(f"{section_prefix}总结")
+        report.append(f"{section_prefix}Summary")
         summary_points = []
         
         if success_rate >= 99.0:
-            summary_points.append(f"DNS解析可靠性{bold_wrapper}极佳{bold_wrapper}，成功率达到 {code_wrapper}{success_rate:.2f}%{code_wrapper}。")
+            summary_points.append(f"DNS resolution reliability is {bold_wrapper}excellent{bold_wrapper}, with a success rate of {code_wrapper}{success_rate:.2f}%{code_wrapper}.")
         elif success_rate >= 95.0:
-            summary_points.append(f"DNS解析可靠性良好，成功率为 {code_wrapper}{success_rate:.2f}%{code_wrapper}。")
+            summary_points.append(f"DNS resolution reliability is good, with a success rate of {code_wrapper}{success_rate:.2f}%{code_wrapper}.")
         elif success_rate >= 90.0:
-            summary_points.append(f"DNS解析可靠性一般，成功率为 {code_wrapper}{success_rate:.2f}%{code_wrapper}，需要关注。")
+            summary_points.append(f"DNS resolution reliability is average, with a success rate of {code_wrapper}{success_rate:.2f}%{code_wrapper}, requires attention.")
         else:
-            summary_points.append(f"DNS解析可靠性{bold_wrapper}较差{bold_wrapper}，成功率仅为 {code_wrapper}{success_rate:.2f}%{code_wrapper}，{bold_wrapper}需要紧急处理{bold_wrapper}。")
+            summary_points.append(f"DNS resolution reliability is {bold_wrapper}poor{bold_wrapper}, with a success rate of only {code_wrapper}{success_rate:.2f}%{code_wrapper}, {bold_wrapper}requires urgent attention{bold_wrapper}.")
         
         if avg_dns_time < current_dns_time_threshold / 3:
-            summary_points.append(f"平均DNS解析时间{bold_wrapper}优秀{bold_wrapper} ({code_wrapper}{avg_dns_time:.1f}ms{code_wrapper})，响应迅速。")
+            summary_points.append(f"Average DNS resolution time is {bold_wrapper}excellent{bold_wrapper} ({code_wrapper}{avg_dns_time:.1f}ms{code_wrapper}), with fast response.")
         elif avg_dns_time < current_dns_time_threshold:
-            summary_points.append(f"平均DNS解析时间可接受 ({code_wrapper}{avg_dns_time:.1f}ms{code_wrapper})。")
+            summary_points.append(f"Average DNS resolution time is acceptable ({code_wrapper}{avg_dns_time:.1f}ms{code_wrapper}).")
         else:
-            summary_points.append(f"平均DNS解析时间{bold_wrapper}较慢{bold_wrapper} ({code_wrapper}{avg_dns_time:.1f}ms{code_wrapper})，可能影响网络体验。")
+            summary_points.append(f"Average DNS resolution time is {bold_wrapper}slow{bold_wrapper} ({code_wrapper}{avg_dns_time:.1f}ms{code_wrapper}), may affect network experience.")
         
         if len(unique_ips) > 1:
-            summary_points.append(f"域名解析到 {len(unique_ips)} 个不同IP地址，显示负载均衡或CDN配置。")
+            summary_points.append(f"Domain resolves to {len(unique_ips)} different IP addresses, indicating load balancing or CDN configuration.")
         
         if ip_changes:
-            summary_points.append(f"检测到 {len(ip_changes)} 次IP地址变化，可能表明DNS记录更新或负载均衡切换。")
+            summary_points.append(f"Detected {len(ip_changes)} IP address changes, possibly indicating DNS record updates or load balancing switches.")
         
         if error_periods:
-            summary_points.append(f"检测到 {len(error_periods)} 次DNS解析错误，详见上方列表。")
+            summary_points.append(f"Detected {len(error_periods)} DNS resolution errors, see list above for details.")
         else:
-            summary_points.append("未发现DNS解析错误，服务稳定性良好。")
+            summary_points.append("No DNS resolution errors found, service stability is good.")
         
         for point in summary_points:
             report.append(f"{list_item}{point}")
     
     else:
-        # 纯文本报告
+        # Plain text report
         sep = "=" * 60
         sub_sep = "-" * 60
         list_indent = "  "
         
         report.append(sep)
-        report.append(f" DNS 解析监控分析报告: {metadata['target_domain']}")
+        report.append(f" DNS Resolution Monitoring Analysis Report: {metadata['target_domain']}")
         report.append(sep)
         report.append("")
         
-        report.append("--- 监控配置与环境 ---")
-        report.append(f"{list_indent}目标域名:           {metadata['target_domain']}")
-        report.append(f"{list_indent}DNS 服务器:         {metadata['dns_server']}")
-        if metadata['system_dns_servers'] != "未知":
-            report.append(f"{list_indent}系统 DNS 服务器:    {metadata['system_dns_servers']}")
-        report.append(f"{list_indent}源公网 IP:          {metadata['source_public_ip']}")
-        report.append(f"{list_indent}日志文件:           {os.path.basename(log_file_path)}")
-        report.append(f"{list_indent}监控开始:           {metadata['start_time_str']}")
-        report.append(f"{list_indent}分析数据范围:       {first_timestamp} 至 {last_timestamp}")
-        report.append(f"{list_indent}总持续时间:         {duration}")
-        report.append(f"{list_indent}总查询次数:         {total_queries}")
-        report.append(f"{list_indent}测量间隔:           {metadata['interval_seconds']} 秒")
-        report.append(f"{list_indent}DNS 超时:           {metadata['dns_timeout']} 秒")
-        report.append(f"{list_indent}分析主机名:         {metadata['analysis_hostname']}")
-        report.append(f"{list_indent}分析时区:           {metadata['analysis_timezone']}")
+        report.append("--- Monitoring Configuration and Environment ---")
+        report.append(f"{list_indent}Target Domain:           {metadata['target_domain']}")
+        report.append(f"{list_indent}DNS Server:              {metadata['dns_server']}")
+        if metadata['system_dns_servers'] != "Unknown":
+            report.append(f"{list_indent}System DNS Servers:      {metadata['system_dns_servers']}")
+        report.append(f"{list_indent}Source Public IP:        {metadata['source_public_ip']}")
+        report.append(f"{list_indent}Log File:                {os.path.basename(log_file_path)}")
+        report.append(f"{list_indent}Monitoring Start:        {metadata['start_time_str']}")
+        report.append(f"{list_indent}Analyzed Data Range:     {first_timestamp} to {last_timestamp}")
+        report.append(f"{list_indent}Total Duration:          {duration}")
+        report.append(f"{list_indent}Total Queries:           {total_queries}")
+        report.append(f"{list_indent}Measurement Interval:    {metadata['interval_seconds']} seconds")
+        report.append(f"{list_indent}DNS Timeout:             {metadata['dns_timeout']} seconds")
+        report.append(f"{list_indent}Analysis Hostname:       {metadata['analysis_hostname']}")
+        report.append(f"{list_indent}Analysis Timezone:       {metadata['analysis_timezone']}")
         report.append("")
         
-        report.append("--- 整体统计 ---")
-        report.append(f"{list_indent}总查询数:           {total_queries}")
-        report.append(f"{list_indent}成功查询数:         {success_count}")
-        report.append(f"{list_indent}失败查询数:         {error_count}")
-        report.append(f"{list_indent}成功率:             {success_rate:.2f}%")
-        report.append(f"{list_indent}错误率:             {error_rate:.2f}%")
-        report.append(f"{list_indent}平均DNS解析时间:    {avg_dns_time:.1f} ms")
-        report.append(f"{list_indent}最小DNS解析时间:    {min_dns_time:.1f} ms")
-        report.append(f"{list_indent}最大DNS解析时间:    {max_dns_time:.1f} ms")
-        report.append(f"{list_indent}中位数DNS解析时间:  {median_dns_time:.1f} ms")
-        report.append(f"{list_indent}解析到的唯一IP数量: {len(unique_ips)}")
+        report.append("--- Overall Statistics ---")
+        report.append(f"{list_indent}Total Queries:           {total_queries}")
+        report.append(f"{list_indent}Successful Queries:      {success_count}")
+        report.append(f"{list_indent}Failed Queries:          {error_count}")
+        report.append(f"{list_indent}Success Rate:            {success_rate:.2f}%")
+        report.append(f"{list_indent}Error Rate:              {error_rate:.2f}%")
+        report.append(f"{list_indent}Average DNS Resolution Time: {avg_dns_time:.1f} ms")
+        report.append(f"{list_indent}Minimum DNS Resolution Time: {min_dns_time:.1f} ms")
+        report.append(f"{list_indent}Maximum DNS Resolution Time: {max_dns_time:.1f} ms")
+        report.append(f"{list_indent}Median DNS Resolution Time:  {median_dns_time:.1f} ms")
+        report.append(f"{list_indent}Number of Unique IPs Resolved: {len(unique_ips)}")
         if unique_ips:
-            report.append(f"{list_indent}所有解析IP:         {', '.join(sorted(unique_ips))}")
+            report.append(f"{list_indent}All Resolved IPs:        {', '.join(sorted(unique_ips))}")
         report.append("")
         
         if ip_changes:
-            report.append("--- IP地址变化记录 ---")
-            report.append(f"{list_indent}检测到 {len(ip_changes)} 次IP地址变化:")
+            report.append("--- IP Address Change Log ---")
+            report.append(f"{list_indent}Detected {len(ip_changes)} IP address changes:")
             for change in ip_changes:
                 report.append(f"{list_indent}  - {change['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}: {change['old_ip']} → {change['new_ip']}")
             report.append("")
         
         if error_types:
-            report.append("--- 错误类型统计 ---")
+            report.append("--- Error Type Statistics ---")
             for error_type, count in sorted(error_types.items(), key=lambda x: x[1], reverse=True):
                 percentage = (count / total_queries) * 100
-                report.append(f"{list_indent}{error_type}: {count} 次 ({percentage:.1f}%)")
+                report.append(f"{list_indent}{error_type}: {count} times ({percentage:.1f}%)")
             report.append("")
         
-        report.append("--- 分析阈值 ---")
+        report.append("--- Analysis Thresholds ---")
         if dynamic_thresholds_calculated:
-            report.append(f"{list_indent}模式: 动态阈值 (基于日志初始数据计算)")
-            report.append(f"{list_indent}  - 基线DNS解析时间: {baseline_dns_time:.1f} ms")
-            report.append(f"{list_indent}使用的阈值:")
-            report.append(f"{list_indent}  - 高DNS解析时间:   > {current_dns_time_threshold:.1f} ms")
+            report.append(f"{list_indent}Mode: Dynamic Thresholds (calculated based on initial log data)")
+            report.append(f"{list_indent}  - Baseline DNS Resolution Time: {baseline_dns_time:.1f} ms")
+            report.append(f"{list_indent}Thresholds Used:")
+            report.append(f"{list_indent}  - High DNS Resolution Time:   > {current_dns_time_threshold:.1f} ms")
         else:
-            report.append(f"{list_indent}模式: 固定阈值 (原因: {baseline_fallback_reason})")
-            report.append(f"{list_indent}使用的阈值:")
-            report.append(f"{list_indent}  - 高DNS解析时间:   > {current_dns_time_threshold:.1f} ms")
+            report.append(f"{list_indent}Mode: Fixed Thresholds (reason: {baseline_fallback_reason})")
+            report.append(f"{list_indent}Thresholds Used:")
+            report.append(f"{list_indent}  - High DNS Resolution Time:   > {current_dns_time_threshold:.1f} ms")
         
-        report.append(f"{list_indent}  - 高错误率:         > {current_error_rate_threshold:.1f}%")
+        report.append(f"{list_indent}  - High Error Rate:         > {current_error_rate_threshold:.1f}%")
         report.append("")
         
-        report.append("--- 潜在问题时段 ---")
+        report.append("--- Potential Problem Periods ---")
         if slow_dns_periods or error_periods:
             if slow_dns_periods:
-                report.append(f"{list_indent}慢DNS解析 (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} 次:")
+                report.append(f"{list_indent}Slow DNS Resolution (>{current_dns_time_threshold:.1f}ms) - {len(slow_dns_periods)} times:")
                 for p in slow_dns_periods:
                     report.append(f"{list_indent}  - {p}")
                 report.append("")
             
             if error_periods:
-                report.append(f"{list_indent}DNS解析错误 - {len(error_periods)} 次:")
+                report.append(f"{list_indent}DNS Resolution Errors - {len(error_periods)} times:")
                 for p in error_periods:
                     report.append(f"{list_indent}  - {p}")
                 report.append("")
         else:
-            report.append(f"{list_indent}未检测到明显超出阈值的问题时段。")
+            report.append(f"{list_indent}No significant problem periods exceeding thresholds detected.")
             report.append("")
         
-        report.append("--- 总结 ---")
+        report.append("--- Summary ---")
         summary_points = []
         
         if success_rate >= 99.0:
-            summary_points.append(f"DNS解析可靠性极佳，成功率达到 {success_rate:.2f}%。")
+            summary_points.append(f"DNS resolution reliability is excellent, with a success rate of {success_rate:.2f}%.")
         elif success_rate >= 95.0:
-            summary_points.append(f"DNS解析可靠性良好，成功率为 {success_rate:.2f}%。")
+            summary_points.append(f"DNS resolution reliability is good, with a success rate of {success_rate:.2f}%.")
         elif success_rate >= 90.0:
-            summary_points.append(f"DNS解析可靠性一般，成功率为 {success_rate:.2f}%，需要关注。")
+            summary_points.append(f"DNS resolution reliability is average, with a success rate of {success_rate:.2f}%, requires attention.")
         else:
-            summary_points.append(f"DNS解析可靠性较差，成功率仅为 {success_rate:.2f}%，需要紧急处理。")
+            summary_points.append(f"DNS resolution reliability is poor, with a success rate of only {success_rate:.2f}%, requires urgent attention.")
         
         if avg_dns_time < current_dns_time_threshold / 3:
-            summary_points.append(f"平均DNS解析时间优秀 ({avg_dns_time:.1f}ms)，响应迅速。")
+            summary_points.append(f"Average DNS resolution time is excellent ({avg_dns_time:.1f}ms), with fast response.")
         elif avg_dns_time < current_dns_time_threshold:
-            summary_points.append(f"平均DNS解析时间可接受 ({avg_dns_time:.1f}ms)。")
+            summary_points.append(f"Average DNS resolution time is acceptable ({avg_dns_time:.1f}ms).")
         else:
-            summary_points.append(f"平均DNS解析时间较慢 ({avg_dns_time:.1f}ms)，可能影响网络体验。")
+            summary_points.append(f"Average DNS resolution time is slow ({avg_dns_time:.1f}ms), may affect network experience.")
         
         if len(unique_ips) > 1:
-            summary_points.append(f"域名解析到 {len(unique_ips)} 个不同IP地址，显示负载均衡或CDN配置。")
+            summary_points.append(f"Domain resolves to {len(unique_ips)} different IP addresses, indicating load balancing or CDN configuration.")
         
         if ip_changes:
-            summary_points.append(f"检测到 {len(ip_changes)} 次IP地址变化，可能表明DNS记录更新或负载均衡切换。")
+            summary_points.append(f"Detected {len(ip_changes)} IP address changes, possibly indicating DNS record updates or load balancing switches.")
         
         if error_periods:
-            summary_points.append(f"检测到 {len(error_periods)} 次DNS解析错误，详见上方列表。")
+            summary_points.append(f"Detected {len(error_periods)} DNS resolution errors, see list above for details.")
         else:
-            summary_points.append("未发现DNS解析错误，服务稳定性良好。")
+            summary_points.append("No DNS resolution errors found, service stability is good.")
         
         for point in summary_points:
             report.append(f"{list_indent}{point}")
@@ -595,8 +595,8 @@ def analyze_dns_log(log_file_path, markdown_format=False):
 
 def main():
     if len(sys.argv) < 2:
-        print(f"用法: {sys.argv[0]} <DNS日志文件路径> [--markdown]")
-        print("示例:")
+        print(f"Usage: {sys.argv[0]} <DNS log file path> [--markdown]")
+        print("Examples:")
         print(f"  {sys.argv[0]} dns_monitor_google.com_8.8.8.8.log")
         print(f"  {sys.argv[0]} dns_monitor_google.com_system.log --markdown")
         sys.exit(1)
@@ -605,14 +605,14 @@ def main():
     markdown_format = '--markdown' in sys.argv
     
     if not os.path.exists(log_file_path):
-        print(f"错误: 日志文件不存在: {log_file_path}")
+        print(f"Error: Log file does not exist: {log_file_path}")
         sys.exit(1)
     
-    print(f"正在分析DNS日志文件: {log_file_path}")
+    print(f"Analyzing DNS log file: {log_file_path}")
     if markdown_format:
-        print("输出格式: Markdown")
+        print("Output format: Markdown")
     else:
-        print("输出格式: 纯文本")
+        print("Output format: Plain text")
     print()
     
     result = analyze_dns_log(log_file_path, markdown_format)
