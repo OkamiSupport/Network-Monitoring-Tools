@@ -169,7 +169,8 @@ def setup_logging(dns_server, use_tcp=False):
         protocol_suffix = "_tcp" if use_tcp else "_udp"
         log_filename = f"dns_monitor_{TARGET_DOMAIN}_{clean_dns}{protocol_suffix}.log"
     else:
-        log_filename = f"dns_monitor_{TARGET_DOMAIN}_system.log"
+        protocol_suffix = "_tcp" if use_tcp else "_udp"
+        log_filename = f"dns_monitor_{TARGET_DOMAIN}_system{protocol_suffix}.log"
     
     logger = logging.getLogger('DNSMonitor')
     logger.setLevel(logging.INFO)
