@@ -83,6 +83,16 @@ def resolve_dns_with_server(domain, dns_server=None, use_tcp=False):
     try:
         start_time = time.time()
         
+        # If TCP is requested but no DNS server specified, get system default DNS
+        if use_tcp and not dns_server:
+            system_dns_servers = get_system_dns_servers()
+            if system_dns_servers:
+                dns_server = system_dns_servers[0]  # Use the first system DNS server
+                print(f"TCP mode enabled, using system DNS server: {dns_server}")
+            else:
+                print("Warning: TCP mode requested but no system DNS server found, falling back to UDP")
+                use_tcp = False
+        
         if dns_server:
             # Use dig command for better TCP/UDP control
             if use_tcp:
@@ -329,7 +339,7 @@ def main():
         all_ips_str = ", ".join(all_ips) if all_ips else "N/A"
         
         # Determine protocol for display and logging
-        protocol = "TCP" if use_tcp and dns_server else "UDP"
+        protocol = "TCP" if use_tcp else "UDP"
         
         # Display results
         if status == "SUCCESS":
