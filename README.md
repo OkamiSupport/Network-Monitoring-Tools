@@ -2,7 +2,7 @@
 
 这是一个功能完整的网络监控工具集合，包含多种网络连通性和性能监控脚本，适用于网络诊断、性能分析和故障排查。
 
-## 🚀 功能特色
+## 功能特色
 
 - **多协议支持**: ICMP Ping、HTTP/HTTPS (cURL)、DNS解析、UDP Ping
 - **智能分析**: 动态阈值计算、问题时段识别、统计分析
@@ -11,7 +11,7 @@
 - **灵活配置**: 可自定义监控参数、间隔、超时等
 - **多格式输出**: 支持纯文本和 Markdown 格式报告
 
-## 📁 项目结构
+## 项目结构
 
 ```
 ai_written_tools/
@@ -31,7 +31,7 @@ ai_written_tools/
     └── 使用说明.txt              # UDP ping 使用说明
 ```
 
-## 🛠️ 工具详细介绍
+## 工具详细介绍
 
 ### 1. ICMP Ping 监控 (`icmp_ping/`)
 
@@ -120,7 +120,7 @@ python3 ping_udp.py target_host 53
 python3 analyze_udp_ping_log.py udp_ping_log.txt
 ```
 
-## 📊 日志分析功能
+## 日志分析功能
 
 所有监控脚本都配备了对应的日志分析工具，提供以下分析功能：
 
@@ -135,7 +135,7 @@ python3 analyze_udp_ping_log.py udp_ping_log.txt
 - **纯文本格式**: 适合终端查看和日志记录
 - **Markdown 格式**: 适合文档生成和分享
 
-## 🔧 系统要求
+## 系统要求
 
 ### 基本要求
 - Python 3.6+
@@ -152,7 +152,7 @@ python3 analyze_udp_ping_log.py udp_ping_log.txt
 - Linux (Ubuntu, CentOS, Debian 等)
 - Windows (需要相应的命令行工具)
 
-## 🚀 快速开始
+## 快速开始
 
 1. **克隆或下载项目**
    ```bash
@@ -182,7 +182,7 @@ python3 analyze_udp_ping_log.py udp_ping_log.txt
    python3 analyze_*.py <日志文件名> --markdown
    ```
 
-## 📝 使用场景
+## 使用场景
 
 ### 网络故障排查
 - 使用 ICMP ping 检测基本连通性
@@ -199,7 +199,7 @@ python3 analyze_udp_ping_log.py udp_ping_log.txt
 - 分析网络性能趋势
 - 生成网络质量报告
 
-## ⚙️ 高级配置
+## 高级配置
 
 ### 自定义监控参数
 大部分脚本支持以下通用参数：
@@ -214,7 +214,7 @@ export MONITOR_INTERVAL=30
 export MONITOR_TIMEOUT=10
 ```
 
-## 🔍 故障排除
+## 故障排除
 
 ### 常见问题
 
@@ -232,11 +232,11 @@ export MONITOR_TIMEOUT=10
    - 解决方案: 检查防火墙设置或使用其他监控方式
 
 
-## 📄 许可证
+## 许可证
 
 本项目采用 MIT 许可证。
 
-## 🤝 贡献
+## 贡献
 
 欢迎提交 Issue 和 Pull Request 来改进这个项目。
 
