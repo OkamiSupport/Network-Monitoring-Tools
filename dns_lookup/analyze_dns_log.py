@@ -62,8 +62,42 @@ def get_timezone_info():
 
 # --- Function to parse log lines ---
 def parse_log_line(line):
-    # Parse format: Resolution Time(ms) | Resolved IP | All IP Addresses | Status
-    pattern = re.compile(
+    # Try new format first: Resolution Time(ms) | Resolved IP | All IP Addresses | Protocol | Status
+    new_pattern = re.compile(
+        r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\|\s*"
+        r"([\d.]+|N/A)\s*\|\s*"
+        r"([\d.]+|N/A)\s*\|\s*"
+        r"([^|]+)\s*\|\s*"
+        r"(TCP|UDP)\s*\|\s*"
+        r"(.+)$"
+    )
+    
+    new_match = new_pattern.match(line)
+    if new_match:
+        try:
+            timestamp = datetime.strptime(new_match.group(1), '%Y-%m-%d %H:%M:%S')
+            
+            # Parse individual fields
+            dns_time = new_match.group(2).strip()
+            resolved_ip = new_match.group(3).strip()
+            all_ips = new_match.group(4).strip()
+            protocol = new_match.group(5).strip()
+            status = new_match.group(6).strip()
+            
+            return {
+                "timestamp": timestamp,
+                "dns_time": dns_time,
+                "resolved_ip": resolved_ip,
+                "all_ips": all_ips,
+                "protocol": protocol,
+                "status": status
+            }
+        except (ValueError, IndexError) as e:
+            print(f"Warning: Error parsing new format data line: {line.strip()} - {e}", file=sys.stderr)
+            return None
+    
+    # Fall back to old format: Resolution Time(ms) | Resolved IP | All IP Addresses | Status
+    old_pattern = re.compile(
         r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\|\s*"
         r"([\d.]+|N/A)\s*\|\s*"
         r"([\d.]+|N/A)\s*\|\s*"
@@ -71,27 +105,29 @@ def parse_log_line(line):
         r"(.+)$"
     )
     
-    match = pattern.match(line)
-    if match:
+    old_match = old_pattern.match(line)
+    if old_match:
         try:
-            timestamp = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.strptime(old_match.group(1), '%Y-%m-%d %H:%M:%S')
             
             # Parse individual fields
-            dns_time = match.group(2).strip()
-            resolved_ip = match.group(3).strip()
-            all_ips = match.group(4).strip()
-            status = match.group(5).strip()
+            dns_time = old_match.group(2).strip()
+            resolved_ip = old_match.group(3).strip()
+            all_ips = old_match.group(4).strip()
+            status = old_match.group(5).strip()
             
             return {
                 "timestamp": timestamp,
                 "dns_time": dns_time,
                 "resolved_ip": resolved_ip,
                 "all_ips": all_ips,
+                "protocol": "UDP",  # Default to UDP for old format
                 "status": status
             }
         except (ValueError, IndexError) as e:
-            print(f"Warning: Error parsing data line: {line.strip()} - {e}", file=sys.stderr)
+            print(f"Warning: Error parsing old format data line: {line.strip()} - {e}", file=sys.stderr)
             return None
+    
     return None
 
 def is_success_status(status):
@@ -157,6 +193,7 @@ def analyze_dns_log(log_file_path, markdown_format=False):
     metadata = {
         "target_domain": "Unknown",
         "dns_server": "Unknown",
+        "query_protocol": "Unknown",
         "system_dns_servers": "Unknown",
         "source_public_ip": "Unknown (Not found in log)",
         "start_time_str": "Unknown",
@@ -192,6 +229,11 @@ def analyze_dns_log(log_file_path, markdown_format=False):
                     match_dns_server = re.match(r".*DNS Server:\s*(.*)", line)
                     if match_dns_server:
                         metadata["dns_server"] = match_dns_server.group(1).strip()
+                        continue
+                    
+                    match_protocol = re.match(r".*Query Protocol:\s*(.*)", line)
+                    if match_protocol:
+                        metadata["query_protocol"] = match_protocol.group(1).strip()
                         continue
                     
                     match_system_dns = re.match(r".*System DNS Servers:\s*(.*)", line)
@@ -362,6 +404,8 @@ def analyze_dns_log(log_file_path, markdown_format=False):
         report.append(f"{section_prefix}Monitoring Configuration and Environment")
         report.append(f"{list_item}{bold_wrapper}Target Domain:{bold_wrapper} {code_wrapper}{metadata['target_domain']}{code_wrapper}")
         report.append(f"{list_item}{bold_wrapper}DNS Server:{bold_wrapper} {code_wrapper}{metadata['dns_server']}{code_wrapper}")
+        if metadata['query_protocol'] != "Unknown":
+            report.append(f"{list_item}{bold_wrapper}Query Protocol:{bold_wrapper} {code_wrapper}{metadata['query_protocol']}{code_wrapper}")
         if metadata['system_dns_servers'] != "Unknown":
             report.append(f"{list_item}{bold_wrapper}System DNS Servers:{bold_wrapper} {metadata['system_dns_servers']}")
         report.append(f"{list_item}{bold_wrapper}Source Public IP:{bold_wrapper} {code_wrapper}{metadata['source_public_ip']}{code_wrapper}")

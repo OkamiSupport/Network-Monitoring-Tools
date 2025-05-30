@@ -101,6 +101,7 @@ def run_curl(url):
         '--user-agent', USER_AGENT,
         '--location',  # Follow redirects
         '--insecure',  # Ignore SSL certificate errors
+        '--http2',  # Force HTTP/2 to avoid QUIC
         url
     ]
     

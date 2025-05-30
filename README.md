@@ -90,21 +90,27 @@ python3 analyze_curl_log.py curl_monitor_example.com.log --markdown
 **Features**:
 - Fixed resolution of google.com domain
 - Custom DNS server support
+- TCP and UDP query protocol support
 - DNS resolution time statistics
 - IP address change tracking
+- Query protocol logging and analysis
 
 **Usage**:
 ```bash
-# Use system default DNS
+# Use system default DNS (UDP)
 python3 monitor_dns.py
 
-# Use specified DNS server
-python3 monitor_dns.py --dns-server 8.8.8.8
-python3 monitor_dns.py --dns-server 1.1.1.1 --interval 5
+# Use specified DNS server with UDP (default)
+python3 monitor_dns.py 8.8.8.8
+python3 monitor_dns.py 1.1.1.1 --interval 5
 
-# Analyze logs
-python3 analyze_dns_log.py dns_monitor_google.com_8.8.8.8.log
-python3 analyze_dns_log.py dns_monitor_google.com_1.1.1.1.log --markdown
+# Use TCP protocol for DNS queries
+python3 monitor_dns.py 8.8.8.8 --tcp
+python3 monitor_dns.py 1.1.1.1 --tcp --interval 5
+
+# Analyze logs (supports both TCP and UDP log formats)
+python3 analyze_dns_log.py dns_monitor_google.com_8.8.8.8_UDP.log
+python3 analyze_dns_log.py dns_monitor_google.com_1.1.1.1_TCP.log --markdown
 ```
 
 ### 4. UDP Ping Monitoring (`udp_ping/`)

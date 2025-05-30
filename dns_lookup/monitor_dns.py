@@ -10,6 +10,7 @@ import urllib.request
 import socket
 import subprocess
 import platform
+import argparse
 from datetime import datetime
 
 # --- Configuration ---
@@ -77,33 +78,39 @@ def get_system_dns_servers():
     # Deduplicate and return the first 3
     return list(dict.fromkeys(dns_servers))[:3]
 
-def resolve_dns_with_server(domain, dns_server=None):
+def resolve_dns_with_server(domain, dns_server=None, use_tcp=False):
     """Resolve domain name using specified DNS server"""
     try:
         start_time = time.time()
         
         if dns_server:
-            # Use nslookup command to specify DNS server
-            if platform.system() == "Windows":
-                cmd = ['nslookup', domain, dns_server]
+            # Use dig command for better TCP/UDP control
+            if use_tcp:
+                cmd = ['dig', '+tcp', f'@{dns_server}', domain, 'A']
             else:
-                cmd = ['nslookup', domain, dns_server]
+                cmd = ['dig', '+notcp', f'@{dns_server}', domain, 'A']
             
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=DNS_TIMEOUT)
                 dns_time = (time.time() - start_time) * 1000
                 
                 if result.returncode == 0:
-                    # Parse nslookup output to get IP addresses
+                    # Parse dig output to get IP addresses
                     output = result.stdout
                     ip_addresses = []
                     
-                    # Find IP addresses
+                    # Find IP addresses in ANSWER section
+                    in_answer_section = False
                     for line in output.split('\n'):
-                        if 'Address:' in line and not line.startswith('Server:'):
-                            parts = line.split(':')
-                            if len(parts) > 1:
-                                ip = parts[1].strip()
+                        if ';; ANSWER SECTION:' in line:
+                            in_answer_section = True
+                            continue
+                        if in_answer_section and line.strip() and not line.startswith(';'):
+                            if line.strip() == '':
+                                break
+                            parts = line.split()
+                            if len(parts) >= 5 and parts[3] == 'A':
+                                ip = parts[4].strip()
                                 if re.match(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", ip):
                                     ip_addresses.append(ip)
                     
@@ -111,10 +118,11 @@ def resolve_dns_with_server(domain, dns_server=None):
                         return f"{dns_time:.1f}", ip_addresses[0], "SUCCESS", ip_addresses
                     else:
                         return f"{dns_time:.1f}", "N/A", "NO_IP_FOUND", []
+
                 else:
                     dns_time = (time.time() - start_time) * 1000
-                    error_msg = result.stderr.strip() if result.stderr.strip() else "Unknown nslookup error"
-                    return f"{dns_time:.1f}", "N/A", f"NSLOOKUP_ERROR: {error_msg}", []
+                    error_msg = result.stderr.strip() if result.stderr.strip() else "Unknown dig error"
+                    return f"{dns_time:.1f}", "N/A", f"DIG_ERROR: {error_msg}", []
                     
             except subprocess.TimeoutExpired:
                 dns_time = DNS_TIMEOUT * 1000
@@ -123,7 +131,7 @@ def resolve_dns_with_server(domain, dns_server=None):
                 dns_time = (time.time() - start_time) * 1000
                 return f"{dns_time:.1f}", "N/A", f"ERROR: {str(e)}", []
         else:
-            # Use system default DNS
+            # Use system default DNS (always UDP for system calls)
             resolved_ip = socket.gethostbyname(domain)
             dns_time = (time.time() - start_time) * 1000
             
@@ -143,12 +151,13 @@ def resolve_dns_with_server(domain, dns_server=None):
         dns_time = (time.time() - start_time) * 1000
         return f"{dns_time:.1f}", "N/A", f"ERROR: {str(e)}", []
 
-def setup_logging(dns_server):
+def setup_logging(dns_server, use_tcp=False):
     """Configure logger"""
     # Clean DNS server name for filename
     if dns_server:
         clean_dns = re.sub(r'[^\w\-.]', '_', dns_server)
-        log_filename = f"dns_monitor_{TARGET_DOMAIN}_{clean_dns}.log"
+        protocol_suffix = "_tcp" if use_tcp else "_udp"
+        log_filename = f"dns_monitor_{TARGET_DOMAIN}_{clean_dns}{protocol_suffix}.log"
     else:
         log_filename = f"dns_monitor_{TARGET_DOMAIN}_system.log"
     
@@ -184,6 +193,7 @@ def setup_logging(dns_server):
         logger.info(f"=== DNS Resolution Monitoring Log ===")
         logger.info(f"Target Domain: {TARGET_DOMAIN}")
         logger.info(f"DNS Server: {dns_server if dns_server else 'System Default'}")
+        logger.info(f"Query Protocol: {'TCP' if use_tcp else 'UDP'}")
         if not dns_server and system_dns:
             logger.info(f"System DNS Servers: {', '.join(system_dns)}")
         logger.info(f"Server Source Public IP: {source_ip}")
@@ -191,7 +201,7 @@ def setup_logging(dns_server):
         logger.info(f"Measurement Interval: {INTERVAL_SECONDS} seconds")
         logger.info(f"DNS Timeout: {DNS_TIMEOUT} seconds")
         logger.info("-" * 100)
-        logger.info("Resolution Time(ms) | Resolved IP | All IP Addresses | Status")
+        logger.info("Resolution Time(ms) | Resolved IP | All IP Addresses | Protocol | Status")
         logger.info("-" * 100)
     
     return logger, log_filename
@@ -232,21 +242,27 @@ def test_dns_server_connectivity(dns_server):
 def main():
     global keep_running
     
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description=f'DNS Resolution Monitoring Tool - Target Domain: {TARGET_DOMAIN}')
+    parser.add_argument('dns_server', nargs='?', help='DNS server IP address (optional, uses system default if not specified)')
+    parser.add_argument('--tcp', action='store_true', help='Use TCP for DNS queries instead of UDP')
+    
+    args = parser.parse_args()
+    
     print(f"DNS Resolution Monitoring Tool - Target Domain: {TARGET_DOMAIN}")
-    print("Usage: python3 monitor_dns.py [DNS Server IP]")
+    print("Usage: python3 monitor_dns.py [DNS Server IP] [--tcp]")
     print("Examples:")
-    print("  python3 monitor_dns.py                    # Use system default DNS")
-    print("  python3 monitor_dns.py 8.8.8.8           # Use Google DNS")
-    print("  python3 monitor_dns.py 1.1.1.1           # Use Cloudflare DNS")
-    print("  python3 monitor_dns.py 114.114.114.114    # Use 114 DNS")
+    print("  python3 monitor_dns.py                    # Use system default DNS with UDP")
+    print("  python3 monitor_dns.py 8.8.8.8           # Use Google DNS with UDP")
+    print("  python3 monitor_dns.py 8.8.8.8 --tcp     # Use Google DNS with TCP")
+    print("  python3 monitor_dns.py --tcp             # Use system default DNS with TCP")
     print()
     
-    # Parse command line arguments
-    dns_server = None
-    if len(sys.argv) > 1:
-        dns_server = sys.argv[1]
-        
-        # Validate DNS server address
+    dns_server = args.dns_server
+    use_tcp = args.tcp
+    
+    # Validate DNS server address if provided
+    if dns_server:
         if not validate_dns_server(dns_server):
             print(f"Error: Invalid DNS server address: {dns_server}")
             print("Please provide a valid IPv4 address, e.g., 8.8.8.8")
@@ -258,16 +274,28 @@ def main():
         if not is_reachable:
             print("Warning: DNS server may not be working correctly, but monitoring will continue.")
     
+    # Check if dig command is available when using TCP
+    if use_tcp and dns_server:
+        try:
+            subprocess.run(['dig', '-v'], capture_output=True, timeout=3)
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print("Error: 'dig' command is required for TCP queries but not found.")
+            print("Please install dig (usually part of bind-utils or dnsutils package) or use UDP queries.")
+            sys.exit(1)
+    
     print(f"Starting DNS resolution monitoring: {TARGET_DOMAIN}")
     print(f"Using DNS Server: {dns_server if dns_server else 'System Default'}")
+    print(f"Query Protocol: {'TCP' if use_tcp else 'UDP'}")
     
     # Display system DNS information
     if not dns_server:
         system_dns = get_system_dns_servers()
         if system_dns:
             print(f"System DNS Servers: {', '.join(system_dns)}")
+        if use_tcp:
+            print("Warning: TCP mode with system default DNS may not work as expected.")
     
-    logger, log_filename = setup_logging(dns_server)
+    logger, log_filename = setup_logging(dns_server, use_tcp)
     print(f"Logs will be recorded in: {log_filename}")
     print("Press Ctrl+C to stop monitoring.")
     print()
@@ -286,7 +314,7 @@ def main():
         start_time = time.time()
         
         # DNS resolution
-        dns_time, resolved_ip, status, all_ips = resolve_dns_with_server(TARGET_DOMAIN, dns_server)
+        dns_time, resolved_ip, status, all_ips = resolve_dns_with_server(TARGET_DOMAIN, dns_server, use_tcp)
         
         # Update statistics
         total_queries += 1
@@ -300,17 +328,21 @@ def main():
         # Format all IP addresses
         all_ips_str = ", ".join(all_ips) if all_ips else "N/A"
         
+        # Determine protocol for display and logging
+        protocol = "TCP" if use_tcp and dns_server else "UDP"
+        
         # Display results
         if status == "SUCCESS":
-            print(f"✓ DNS Resolution: {dns_time}ms | Main IP: {resolved_ip} | All IPs: [{all_ips_str}] | Status: {status}")
+            print(f"✓ DNS Resolution: {dns_time}ms | Main IP: {resolved_ip} | All IPs: [{all_ips_str}] | Protocol: {protocol} | Status: {status}")
         else:
-            print(f"✗ DNS Resolution: {dns_time}ms | Main IP: {resolved_ip} | Status: {status}")
+            print(f"✗ DNS Resolution: {dns_time}ms | Main IP: {resolved_ip} | Protocol: {protocol} | Status: {status}")
         
         # Record log
         log_message = (
             f"{str(dns_time):>13} | "
             f"{str(resolved_ip):>15} | "
             f"{all_ips_str:>30} | "
+            f"{protocol:>8} | "
             f"{status}"
         )
         logger.info(log_message)

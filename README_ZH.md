@@ -88,21 +88,27 @@ python3 analyze_curl_log.py curl_monitor_example.com.log --markdown
 **特点**:
 - 固定解析 google.com 域名
 - 支持自定义 DNS 服务器
+- 支持 TCP 和 UDP 查询协议
 - DNS 解析时间统计
 - IP 地址变化追踪
+- 查询协议日志记录和分析
 
 **使用方法**:
 ```bash
-# 使用系统默认 DNS
+# 使用系统默认 DNS (UDP)
 python3 monitor_dns.py
 
-# 使用指定 DNS 服务器
-python3 monitor_dns.py --dns-server 8.8.8.8
-python3 monitor_dns.py --dns-server 1.1.1.1 --interval 5
+# 使用指定 DNS 服务器，默认 UDP 协议
+python3 monitor_dns.py 8.8.8.8
+python3 monitor_dns.py 1.1.1.1 --interval 5
 
-# 分析日志
-python3 analyze_dns_log.py dns_monitor_google.com_8.8.8.8.log
-python3 analyze_dns_log.py dns_monitor_google.com_1.1.1.1.log --markdown
+# 使用 TCP 协议进行 DNS 查询
+python3 monitor_dns.py 8.8.8.8 --tcp
+python3 monitor_dns.py 1.1.1.1 --tcp --interval 5
+
+# 分析日志（支持 TCP 和 UDP 两种日志格式）
+python3 analyze_dns_log.py dns_monitor_google.com_8.8.8.8_UDP.log
+python3 analyze_dns_log.py dns_monitor_google.com_1.1.1.1_TCP.log --markdown
 ```
 
 ### 4. UDP Ping 监控 (`udp_ping/`)
