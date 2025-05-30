@@ -1,330 +1,332 @@
-# UDP Ping 工具使用说明
+# UDP Ping Tool Usage Guide
 
-## 概述
+[中文版 / Chinese Version](README_ZH.md)
 
-本工具集包含两个脚本，用于UDP网络连通性测试和日志分析：
+## Overview
 
-- **`ping_udp.py`**: UDP Ping 工具，支持服务端和客户端模式
-- **`analyze_udp_ping_log.py`**: UDP Ping 日志分析工具
+This toolkit contains two scripts for UDP network connectivity testing and log analysis:
 
-## 1. ping_udp.py 使用说明
+- **`ping_udp.py`**: UDP Ping tool supporting both server and client modes
+- **`analyze_udp_ping_log.py`**: UDP Ping log analysis tool
 
-### 功能介绍
+## 1. ping_udp.py Usage Guide
 
-此脚本是一个 UDP Ping 工具，用于测试两台主机之间指定 UDP 端口的网络连通性、延迟、丢包率和抖动。它包含两种运行模式：
+### Feature Introduction
 
-- **服务端模式 (`-s`)**: 在一台机器上运行，监听指定的 UDP 端口，接收客户端发来的 Ping 包，并立即发送回显响应 (Pong)。此模式不产生日志文件。
-- **客户端模式 (`-c`)**: 向指定的服务端 IP 和端口发送 UDP Ping 包，接收响应，计算性能指标（RTT、丢包、抖动等），并将结果输出到控制台和日志文件。
+This script is a UDP Ping tool for testing network connectivity, latency, packet loss rate, and jitter between two hosts on specified UDP ports. It includes two operating modes:
 
-### 系统要求
+- **Server Mode (`-s`)**: Runs on one machine, listens on a specified UDP port, receives Ping packets from clients, and immediately sends echo responses (Pong). This mode does not generate log files.
+- **Client Mode (`-c`)**: Sends UDP Ping packets to a specified server IP and port, receives responses, calculates performance metrics (RTT, packet loss, jitter, etc.), and outputs results to console and log files.
 
-- Python 3.4 或更高版本 (因为使用了 statistics 模块)
+### System Requirements
 
-### 服务端模式
+- Python 3.4 or higher (due to use of statistics module)
 
-#### 启动命令
+### Server Mode
+
+#### Startup Command
 ```bash
-python ping_udp.py -s [可选参数]
+python ping_udp.py -s [optional parameters]
 ```
 
-#### 常用参数
+#### Common Parameters
 
-| 参数 | 简写 | 类型 | 默认值 | 描述 |
-|------|------|------|--------|------|
-| `--server` | `-s` | Flag | N/A | 必须指定，表示以服务端模式运行 |
-| `--port <端口号>` | `-p` | Integer | 9999 | 指定监听的 UDP 端口号 |
-| `--host <监听地址>` | `-H` | String | 0.0.0.0 | 指定服务端绑定的 IP 地址 |
-| `--buffer <大小>` | `-b` | Integer | 1024 | 指定接收缓冲区大小 (字节) |
+| Parameter | Short | Type | Default | Description |
+|-----------|-------|------|---------|-------------|
+| `--server` | `-s` | Flag | N/A | Required, specifies running in server mode |
+| `--port <port_number>` | `-p` | Integer | 9999 | Specifies the UDP port number to listen on |
+| `--host <listen_address>` | `-H` | String | 0.0.0.0 | Specifies the IP address the server binds to |
+| `--buffer <size>` | `-b` | Integer | 1024 | Specifies receive buffer size (bytes) |
 
-#### 使用示例
+#### Usage Examples
 
 ```bash
-# 在所有网络接口上监听 UDP 端口 9999 (默认)
+# Listen on UDP port 9999 on all network interfaces (default)
 python ping_udp.py -s
 
-# 在特定 IP 地址 192.168.1.100 上监听 UDP 端口 12345
+# Listen on UDP port 12345 on specific IP address 192.168.1.100
 python ping_udp.py -s -H 192.168.1.100 -p 12345
 ```
 
-#### 运行说明
+#### Operation Instructions
 
-- 启动后，服务端会在控制台显示 "UDP Ping 服务端正在监听 <地址>:<端口>..."
-- 它会持续运行，等待客户端连接
-- 不会生成任何日志文件
-- 按 `Ctrl+C` 可以停止服务端运行
+- After startup, the server displays "UDP Ping server listening on <address>:<port>..." in the console
+- It runs continuously, waiting for client connections
+- Does not generate any log files
+- Press `Ctrl+C` to stop the server
 
-### 客户端模式
+### Client Mode
 
-#### 启动命令
+#### Startup Command
 ```bash
-python ping_udp.py -c <目标主机> [可选参数]
+python ping_udp.py -c <target_host> [optional parameters]
 ```
 
-#### 运行模式
+#### Operating Modes
 
-客户端有两种主要运行方式，由是否提供 `-n` 参数决定：
+The client has two main operating modes, determined by whether the `-n` parameter is provided:
 
-##### 1. 单次运行模式 (指定 `-n` 次数)
+##### 1. Single Run Mode (specify `-n` count)
 
-**目的**: 发送固定数量 (`-n` 指定的数量) 的 Ping 包，完成测量后输出统计结果并退出。
+**Purpose**: Send a fixed number (`-n` specified) of Ping packets, output statistics after completion, and exit.
 
-**命令示例**:
+**Command Examples**:
 ```bash
-# 向 100.59.0.1 的 4500 端口发送 50 个 ping 包，然后退出
+# Send 50 ping packets to port 4500 of 100.59.0.1, then exit
 python ping_udp.py -c 100.59.0.1 -p 4500 -n 50
 
-# 发送 100 个包，包间隔 0.2 秒，超时 1 秒，包大小 512 字节
+# Send 100 packets with 0.2s interval, 1s timeout, 512-byte packet size
 python ping_udp.py -c 100.59.0.1 -p 4500 -n 100 -i 0.2 -t 1 -S 512
 ```
 
-**行为**: 脚本会执行指定的 `-n` 次 Ping，完成后在控制台打印总结信息，并将该次运行的汇总统计结果记录一行到日志文件，然后脚本退出。
+**Behavior**: The script executes the specified `-n` Pings, prints summary information to console after completion, records one line of summary statistics to the log file, then exits.
 
-##### 2. 周期性监控模式 (不指定 `-n`)
+##### 2. Periodic Monitoring Mode (no `-n` specified)
 
-**目的**: 持续运行，按照指定的日志汇总间隔 (`-I` 参数，默认 10 秒) 进行周期性测量和日志记录，直到手动停止 (`Ctrl+C`)。
+**Purpose**: Run continuously, performing periodic measurements and logging at specified log summary intervals (`-I` parameter, default 10 seconds) until manually stopped (`Ctrl+C`).
 
-**包数计算**: 在每个汇总周期内，脚本会根据日志汇总间隔 (`-I`) 和 Ping 包发送间隔 (`-i`) 自动计算需要发送多少个 Ping 包：
+**Packet Count Calculation**: Within each summary period, the script automatically calculates how many Ping packets to send based on the log summary interval (`-I`) and Ping packet send interval (`-i`):
 
 ```
-每次测量的包数 = max(1, int(汇总间隔 / Ping间隔))
+Packets per measurement = max(1, int(summary_interval / ping_interval))
 ```
 
-例如，`-I 10 -i 0.5` 时，每个 10 秒周期会测量 `int(10 / 0.5) = 20` 个包。
+For example, with `-I 10 -i 0.5`, each 10-second period will measure `int(10 / 0.5) = 20` packets.
 
-**命令示例**:
+**Command Examples**:
 ```bash
-# 持续监控 100.59.0.1 的 4500 端口，默认每 10 秒记录一次日志
-# (默认 Ping 间隔 1s, 每次测量 10 个包)
+# Continuously monitor port 4500 of 100.59.0.1, log every 10 seconds by default
+# (default Ping interval 1s, 10 packets per measurement)
 python ping_udp.py -c 100.59.0.1 -p 4500
 
-# 持续监控，每 30 秒记录一次日志，Ping 间隔 0.5 秒 (每次测量 60 个包)
+# Continuous monitoring, log every 30 seconds, Ping interval 0.5s (60 packets per measurement)
 python ping_udp.py -c 100.59.0.1 -p 4500 -i 0.5 -I 30
 
-# 持续监控，每 10 秒记录一次日志，Ping 间隔 0.1 秒 (每次测量 100 个包)，启用详细控制台输出
+# Continuous monitoring, log every 10 seconds, Ping interval 0.1s (100 packets per measurement), enable verbose console output
 python ping_udp.py -c 100.59.0.1 -p 4500 -i 0.1 -I 10 -v
 ```
 
-**行为**: 脚本启动后进入无限循环。在每个循环（大致等于 `-I` 指定的秒数）中，它会：
+**Behavior**: After startup, the script enters an infinite loop. In each loop (approximately equal to `-I` specified seconds), it will:
 
-1. 执行计算出的包数量的 Ping 测量 (`_perform_ping_batch`)
-2. 计算该批次的统计数据
-3. 将该批次的汇总统计结果记录一行到日志文件
-4. 立即开始下一轮测量
-5. 按 `Ctrl+C` 可以停止监控
+1. Execute Ping measurements for the calculated number of packets (`_perform_ping_batch`)
+2. Calculate statistics for that batch
+3. Record one line of summary statistics for that batch to the log file
+4. Immediately start the next round of measurements
+5. Press `Ctrl+C` to stop monitoring
 
-### 命令行参数详解
+### Command Line Parameters Details
 
-| 参数 | 简写 | 类型 | 默认值 | 模式 | 描述 |
-|------|------|------|--------|------|------|
-| `--server` | `-s` | Flag | N/A | 服务端 | 必须, 指定以服务端模式运行 |
-| `--client <主机>` | `-c` | String | N/A | 客户端 | 必须, 指定以客户端模式运行，并提供目标主机的 IP 地址或域名 |
-| `--host <监听地址>` | `-H` | String | 0.0.0.0 | 服务端 | 服务端绑定的 IP 地址 |
-| `--port <端口号>` | `-p` | Integer | 9999 | 服务/客户 | 要监听（服务端）或连接（客户端）的 UDP 端口号 |
-| `--buffer <大小>` | `-b` | Integer | 1024 | 服务/客户 | 接收缓冲区的大小 (字节) |
-| `--count <次数>` | `-n` | Integer | None | 客户端 | 发送 Ping 的次数。如果提供此参数，则为单次运行模式；否则为周期性监控模式 |
-| `--interval <秒数>` | `-i` | Float | 1.0 | 客户端 | 两次 Ping 请求之间的发送间隔时间 (秒) |
-| `--timeout <秒数>` | `-t` | Float | 1.0 | 客户端 | 等待每次 Ping 回复的超时时间 (秒) |
-| `--size <字节数>` | `-S` | Integer | 64 | 客户端 | 每个 UDP Ping 数据包的总大小 (字节)，包括内部使用的头部 |
-| `--summary-interval <秒数>` | `-I` | Float | 10.0 | 客户端 | 仅周期性监控模式有效。记录汇总日志的时间间隔 (秒)，并用于计算每次测量的包数 |
-| `--verbose` | `-v` | Flag | False | 客户端 | 启用详细的控制台输出 (例如，显示每个包的发送、接收、超时情况)。不影响日志文件内容级别 |
+| Parameter | Short | Type | Default | Mode | Description |
+|-----------|-------|------|---------|------|-------------|
+| `--server` | `-s` | Flag | N/A | Server | Required, specifies running in server mode |
+| `--client <host>` | `-c` | String | N/A | Client | Required, specifies running in client mode and provides target host IP address or domain name |
+| `--host <listen_address>` | `-H` | String | 0.0.0.0 | Server | IP address the server binds to |
+| `--port <port_number>` | `-p` | Integer | 9999 | Server/Client | UDP port number to listen on (server) or connect to (client) |
+| `--buffer <size>` | `-b` | Integer | 1024 | Server/Client | Receive buffer size (bytes) |
+| `--count <number>` | `-n` | Integer | None | Client | Number of Pings to send. If provided, single run mode; otherwise periodic monitoring mode |
+| `--interval <seconds>` | `-i` | Float | 1.0 | Client | Send interval time between Ping requests (seconds) |
+| `--timeout <seconds>` | `-t` | Float | 1.0 | Client | Timeout for waiting for each Ping reply (seconds) |
+| `--size <bytes>` | `-S` | Integer | 64 | Client | Total size of each UDP Ping packet (bytes), including internal headers |
+| `--summary-interval <seconds>` | `-I` | Float | 10.0 | Client | Valid only in periodic monitoring mode. Time interval for recording summary logs (seconds), used to calculate packets per measurement |
+| `--verbose` | `-v` | Flag | False | Client | Enable verbose console output (e.g., show send/receive/timeout status for each packet). Does not affect log file content level |
 
-### 输出解读
+### Output Interpretation
 
-#### 1. 控制台输出 (客户端)
+#### 1. Console Output (Client)
 
-**启动信息**: 显示目标 IP、端口、包大小、次数（或周期性）、间隔、超时等信息。
+**Startup Information**: Shows target IP, port, packet size, count (or periodic), interval, timeout, etc.
 
-**Ping 过程 (普通模式)**:
-- `来自 <IP> 的回复: seq=<N> time=<RTT> ms`: 成功收到回复
-- `请求超时 (seq=<N>)`: 在超时时间内未收到回复
-- **错误信息**: 可能显示发送或接收时的 Socket 错误
+**Ping Process (Normal Mode)**:
+- `Reply from <IP>: seq=<N> time=<RTT> ms`: Successfully received reply
+- `Request timeout (seq=<N>)`: No reply received within timeout
+- **Error Messages**: May show Socket errors during send or receive
 
-**Ping 过程 (`-v` 详细模式)**: 会更详细地显示每个包的发送、接收成功/失败信息。
+**Ping Process (`-v` Verbose Mode)**: Shows more detailed send/receive success/failure information for each packet.
 
-**总结信息** (单次模式或周期模式每轮结束时):
+**Summary Information** (single mode or end of each round in periodic mode):
 ```
---- <目标> 的 UDP Ping 统计信息 ---
-<发送数> 个包已发送, <接收数> 个包已接收, <错误数> 个错误, <丢包率>% 包丢失
-往返行程 RTT (毫秒): 最短 = ..., 平均 = ..., 最长 = ...
-标准差 = ..., 抖动 = ...
+--- UDP Ping statistics for <target> ---
+<sent> packets transmitted, <received> packets received, <errors> errors, <loss_rate>% packet loss
+round-trip RTT (ms): min = ..., avg = ..., max = ...
+stddev = ..., jitter = ...
 ```
 
-**周期性监控提示**: 会提示按 `Ctrl+C` 停止。
+**Periodic Monitoring Prompt**: Prompts to press `Ctrl+C` to stop.
 
-#### 2. 日志文件输出 (仅客户端)
+#### 2. Log File Output (Client Only)
 
-**文件名**: `udp_ping_client_<目标IP>_<目标端口>_<启动时间戳>.log`
+**Filename**: `udp_ping_client_<target_IP>_<target_port>_<startup_timestamp>.log`
 
-例如: `udp_ping_client_100.59.0.1_4500_20250417_163135.log`
+Example: `udp_ping_client_100.59.0.1_4500_20250417_163135.log`
 
-文件创建在脚本运行的目录下。
+File is created in the script's running directory.
 
-**文件内容**:
+**File Content**:
 
-1. **头部信息**: 记录了本次监控的目标、端口、启动时间、以及所有使用的参数（如 Ping 包数、间隔、大小、超时、汇总间隔等）
+1. **Header Information**: Records monitoring target, port, startup time, and all parameters used (such as Ping packet count, interval, size, timeout, summary interval, etc.)
 
-2. **表格标题行**: 定义了后面数据行的列名
+2. **Table Header Row**: Defines column names for subsequent data rows
    ```
-   发送 | 接收 | 丢包率(%) | Min RTT(ms) | Avg RTT(ms) | Max RTT(ms) | StdDev(ms) | Jitter(ms) | Size(bytes)
+   Sent | Received | Loss(%) | Min RTT(ms) | Avg RTT(ms) | Max RTT(ms) | StdDev(ms) | Jitter(ms) | Size(bytes)
    ```
 
-3. **数据行**:
-   - **单次运行模式** (`-n`): 只会记录一行，代表本次运行 `-n` 个包的汇总统计结果
-   - **周期性监控模式** (无 `-n`): 每隔 `-I` 指定的时间（大约），会记录一行，代表该周期内测量的所有包的汇总统计结果
+3. **Data Rows**:
+   - **Single Run Mode** (`-n`): Records only one row representing summary statistics for `-n` packets in this run
+   - **Periodic Monitoring Mode** (no `-n`): Records one row approximately every `-I` specified time, representing summary statistics for all packets measured in that period
 
-**每列含义**:
+**Column Meanings**:
 
-| 列名 | 描述 |
-|------|------|
-| 发送 | 该周期/批次发送的包数 |
-| 接收 | 该周期/批次成功接收的包数 |
-| 丢包率(%) | 该周期/批次的丢包百分比 |
-| Min RTT(ms) | 该周期/批次的最小往返时间 |
-| Avg RTT(ms) | 该周期/批次的平均往返时间 |
-| Max RTT(ms) | 该周期/批次的最大往返时间 |
-| StdDev(ms) | 该周期/批次 RTT 的标准差 |
-| Jitter(ms) | 该周期/批次 RTT 的抖动（相邻 RTT 差值绝对值的平均值） |
-| Size(bytes) | 本次测量使用的 Ping 包大小 |
+| Column | Description |
+|--------|-------------|
+| Sent | Number of packets sent in this period/batch |
+| Received | Number of packets successfully received in this period/batch |
+| Loss(%) | Packet loss percentage for this period/batch |
+| Min RTT(ms) | Minimum round-trip time for this period/batch |
+| Avg RTT(ms) | Average round-trip time for this period/batch |
+| Max RTT(ms) | Maximum round-trip time for this period/batch |
+| StdDev(ms) | Standard deviation of RTT for this period/batch |
+| Jitter(ms) | RTT jitter for this period/batch (average of absolute differences between consecutive RTTs) |
+| Size(bytes) | Ping packet size used in this measurement |
 
-## 2. analyze_udp_ping_log.py 使用说明
+## 2. analyze_udp_ping_log.py Usage Guide
 
-### 概述
+### Overview
 
-此脚本用于解析由 `ping_udp.py` (客户端模式) 生成的日志文件。它可以读取日志数据，计算整体统计指标，并根据动态或固定阈值识别潜在的网络问题时段（高丢包、高延迟、高抖动），最后生成一份易于阅读的分析报告（纯文本或 Markdown 格式）。
+This script is used to parse log files generated by `ping_udp.py` (client mode). It can read log data, calculate overall statistical metrics, identify potential network problem periods based on dynamic or fixed thresholds (high packet loss, high latency, high jitter), and finally generate an easy-to-read analysis report (plain text or Markdown format).
 
-### 系统要求
+### System Requirements
 
-- Python 3.4 或更高版本
-- 脚本文件 `analyze_udp_ping_log.py`
-- 需要分析的 UDP Ping 日志文件 (由 `ping_udp.py` 生成)
-- 无需安装额外的 Python 包
+- Python 3.4 or higher
+- Script file `analyze_udp_ping_log.py`
+- UDP Ping log file to analyze (generated by `ping_udp.py`)
+- No additional Python packages required
 
-### 使用方法
+### Usage
 
-#### 基本用法 (生成纯文本报告到控制台)
+#### Basic Usage (generate plain text report to console)
 ```bash
-python analyze_udp_ping_log.py <你的udp_ping日志文件路径>
+python analyze_udp_ping_log.py <your_udp_ping_log_file_path>
 ```
 
-#### 生成 Markdown 格式报告
+#### Generate Markdown Format Report
 ```bash
-python analyze_udp_ping_log.py <你的udp_ping日志文件路径> --md
+python analyze_udp_ping_log.py <your_udp_ping_log_file_path> --md
 ```
 
-这会在与日志文件相同的目录下生成一个名为 `<日志文件基础名>_udp_report.md` 的 Markdown 文件。如果无法写入文件，报告内容会打印到控制台。
+This will generate a Markdown file named `<log_file_basename>_udp_report.md` in the same directory as the log file. If unable to write the file, report content will be printed to console.
 
-#### 使用示例
+#### Usage Examples
 
 ```bash
-# 分析当前目录下的 udp_ping_client_100.59.0.1_4500_....log 文件，输出文本报告
+# Analyze udp_ping_client_100.59.0.1_4500_....log file in current directory, output text report
 python analyze_udp_ping_log.py udp_ping_client_100.59.0.1_4500_20250417_163135.log
 
-# 分析指定路径的日志文件，并生成 Markdown 报告
+# Analyze log file at specified path and generate Markdown report
 python analyze_udp_ping_log.py /var/log/ping_logs/udp_ping_client_100.59.0.1_4500_20250417_163135.log --md
 ```
 
-### 命令行参数详解
+### Command Line Parameters Details
 
-| 参数 | 类型 | 必需 | 描述 |
-|------|------|------|------|
-| `<udp_ping_log_file_path>` | String | 是 | 指定要分析的 UDP Ping 日志文件的路径 |
-| `--md` | Flag | 否 | 如果提供，脚本将生成 Markdown 格式的报告并尝试保存到文件；否则，生成纯文本报告并打印到控制台 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `<udp_ping_log_file_path>` | String | Yes | Specifies the path to the UDP Ping log file to analyze |
+| `--md` | Flag | No | If provided, script will generate Markdown format report and attempt to save to file; otherwise, generates plain text report and prints to console |
 
-### 输出解读 (报告内容)
+### Output Interpretation (Report Content)
 
-报告（无论是纯文本还是 Markdown）通常包含以下几个部分：
+Reports (whether plain text or Markdown) typically contain the following sections:
 
-#### 1. 报告标题
-指明是针对哪个目标 IP 和端口的分析报告。
+#### 1. Report Title
+Indicates which target IP and port this analysis report is for.
 
-#### 2. 分析环境与监控配置
-显示从日志文件中解析出的监控配置信息，如：
-- 目标 IP/端口
-- 监控开始时间
-- 每次测量的包数描述
-- Ping 间隔/大小/超时
-- 日志汇总间隔（如果是周期模式）等
-- 运行分析脚本的机器的主机名和时区
+#### 2. Analysis Environment and Monitoring Configuration
+Shows monitoring configuration information parsed from the log file, such as:
+- Target IP/port
+- Monitoring start time
+- Description of packets per measurement
+- Ping interval/size/timeout
+- Log summary interval (if periodic mode), etc.
+- Hostname and timezone of the machine running the analysis script
 
-#### 3. 整体统计
-展示整个日志文件时间范围内的汇总统计数据，包括：
-- 总发送/接收包数
-- 整体平均丢包率
-- 整体平均/最小/最大 RTT
-- 整体平均标准差 (StdDev)
-- 整体平均抖动 (Jitter)
+#### 3. Overall Statistics
+Shows summary statistics for the entire log file time range, including:
+- Total sent/received packet count
+- Overall average packet loss rate
+- Overall average/minimum/maximum RTT
+- Overall average standard deviation (StdDev)
+- Overall average jitter
 
-#### 4. 分析阈值
+#### 4. Analysis Thresholds
 
-**关键部分!** 显示本次分析使用的阈值。会指明是使用了 **动态阈值** 还是 **固定阈值**。
+**Key Section!** Shows thresholds used in this analysis. Will indicate whether **dynamic thresholds** or **fixed thresholds** were used.
 
-##### 动态阈值
-如果日志文件开头的稳定数据足够多，脚本会基于这些数据计算出一个网络基线 (Baseline RTT, StdDev, Jitter)，然后根据这些基线动态计算出本次分析的高延迟和高抖动阈值。这使得阈值能适应不同网络环境的正常水平。
+##### Dynamic Thresholds
+If there is sufficient stable data at the beginning of the log file, the script will calculate a network baseline (Baseline RTT, StdDev, Jitter) based on this data, then dynamically calculate high latency and high jitter thresholds for this analysis based on these baselines. This allows thresholds to adapt to the normal levels of different network environments.
 
-##### 固定阈值
-如果日志数据不足或初始数据不稳定（丢包率高），导致无法计算可靠基线，脚本会回退使用在脚本内部预设的固定阈值。报告中会说明回退的原因。
+##### Fixed Thresholds
+If log data is insufficient or initial data is unstable (high packet loss rate), preventing reliable baseline calculation, the script will fall back to using preset fixed thresholds in the script. The report will explain the reason for fallback.
 
-##### 显示的阈值
-报告会列出最终用于判断问题的所有阈值，包括：
-- 高丢包率
-- 高延迟
-- 高抖动 (Jitter、StdDev、Max/Avg Ratio)
+##### Displayed Thresholds
+The report will list all thresholds finally used for problem judgment, including:
+- High packet loss rate
+- High latency
+- High jitter (Jitter, StdDev, Max/Avg Ratio)
 
-#### 5. 潜在问题时段
-列出在分析期间内，哪些时间点的测量结果超过了上述"分析阈值"部分定义的相应阈值。
+#### 5. Potential Problem Periods
+Lists which time points during the analysis period had measurement results exceeding the corresponding thresholds defined in the "Analysis Thresholds" section above.
 
-- 会按问题类型（高丢包、高延迟、高抖动）分类列出
-- 对于高抖动，会具体说明是哪个抖动指标超限（Jitter 值、StdDev 值 或 Max/Avg Ratio）
-- 如果没有任何时段超出阈值，会明确说明
+- Will be categorized by problem type (high packet loss, high latency, high jitter)
+- For high jitter, will specifically indicate which jitter metric exceeded limits (Jitter value, StdDev value, or Max/Avg Ratio)
+- If no periods exceed thresholds, will clearly state this
 
-#### 6. 总结
-提供一个基于整体统计数据和问题时段检测结果的高级别定性总结。
+#### 6. Summary
+Provides a high-level qualitative summary based on overall statistics and problem period detection results.
 
-- 评价网络的连通性（丢包情况）
-- 延迟水平和稳定性（抖动情况）
-- 指出是否检测到了潜在的问题时段
+- Evaluates network connectivity (packet loss situation)
+- Latency level and stability (jitter situation)
+- Indicates whether potential problem periods were detected
 
-### 关于动态阈值与固定阈值
+### About Dynamic vs Fixed Thresholds
 
-#### 目标
-动态阈值旨在让分析更能适应被测网络的"正常"表现。例如，对于一个本身延迟就比较高但很稳定的网络，固定阈值可能总是误报高延迟，而动态阈值能基于其自身基线设置一个更合理的判断标准。
+#### Goal
+Dynamic thresholds aim to make analysis more adaptable to the "normal" performance of the tested network. For example, for a network that has inherently high but stable latency, fixed thresholds might always falsely report high latency, while dynamic thresholds can set more reasonable judgment criteria based on its own baseline.
 
-#### 条件
-动态阈值需要日志文件开头有足够数量（默认至少 20 条）且丢包率较低（默认 <= 0.5%）的稳定数据记录来计算基线。
+#### Conditions
+Dynamic thresholds require sufficient quantity (default at least 20 records) of stable data records with low packet loss rates (default <= 0.5%) at the beginning of the log file to calculate baselines.
 
-#### 回退
-如果条件不满足，脚本会自动使用内部预设的固定阈值，并在报告中说明原因。这确保了即使在数据不理想的情况下也能进行分析。
+#### Fallback
+If conditions are not met, the script will automatically use preset fixed thresholds and explain the reason in the report. This ensures analysis can still be performed even with less-than-ideal data.
 
-## 3. 常见问题与提示
+## 3. Common Issues and Tips
 
-### 日志格式不对齐
-这通常是由于查看日志文件时使用的终端或文本编辑器没有设置为等宽字体 (Monospaced Font) 导致的。请检查并修改显示环境的字体设置。脚本本身生成的对齐是基于字符数的。
+### Log Format Misalignment
+This is usually caused by the terminal or text editor used to view log files not being set to a monospaced font. Please check and modify the display environment's font settings. The script itself generates alignment based on character count.
 
-### 无法连接/100%丢包
+### Cannot Connect/100% Packet Loss
 
-#### 防火墙
-这是最常见的原因。请确保：
-- 服务端的防火墙（系统防火墙如 iptables/firewalld/ufw 或云平台安全组）允许来自客户端 IP 的 UDP 入站流量到达指定端口
-- 检查客户端出站和相关的入站回复流量是否被阻止
-- 中间网络设备也可能有防火墙
+#### Firewall
+This is the most common cause. Please ensure:
+- Server firewall (system firewalls like iptables/firewalld/ufw or cloud platform security groups) allows UDP inbound traffic from client IP to the specified port
+- Check if client outbound and related inbound reply traffic is blocked
+- Intermediate network devices may also have firewalls
 
-#### 服务端未运行
-确认 `ping_udp.py -s` 确实在目标机器上运行，并且监听在正确的 IP 和端口。
+#### Server Not Running
+Confirm that `ping_udp.py -s` is actually running on the target machine and listening on the correct IP and port.
 
-#### NAT 问题
-如果客户端位于 NAT 之后（如家用路由器），UDP 的无连接特性可能导致 NAT 映射失败或防火墙阻止回复包。可以尝试在两端都是公网 IP 的环境下测试以排除 NAT 影响。
+#### NAT Issues
+If the client is behind NAT (like home routers), UDP's connectionless nature may cause NAT mapping failures or firewalls blocking reply packets. Try testing in an environment where both ends have public IPs to exclude NAT effects.
 
-#### 路由问题
-确保网络路由配置正确。
+#### Routing Issues
+Ensure network routing configuration is correct.
 
-### 日志文件未生成 (客户端)
+### Log File Not Generated (Client)
 
-- 确保你运行的是客户端模式 (`-c`)。服务端模式不生成日志
-- 检查脚本是否有权限在当前目录创建文件
-- 检查启动命令是否因参数错误或目标主机无法解析等早期错误而提前退出
+- Ensure you're running in client mode (`-c`). Server mode does not generate logs
+- Check if the script has permission to create files in the current directory
+- Check if the startup command exited early due to parameter errors or unresolvable target hosts
 
-### 分析脚本报错
+### Analysis Script Errors
 
-- 确保提供的日志文件路径正确
-- 确保日志文件是由兼容版本的 `ping_udp.py` 生成的，格式没有被破坏
-- 检查文件读取权限
+- Ensure the provided log file path is correct
+- Ensure the log file was generated by a compatible version of `ping_udp.py` and the format is not corrupted
+- Check file read permissions
