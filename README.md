@@ -16,7 +16,7 @@ This is a comprehensive network monitoring tools collection that includes variou
 ## Project Structure
 
 ```
-ai_written_tools/
+/
 ├── README.md                    # Project documentation
 ├── icmp_ping/                   # ICMP Ping monitoring tools
 │   ├── monitor_ping.py          # ICMP ping monitoring script

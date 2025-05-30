@@ -14,7 +14,7 @@
 ## 项目结构
 
 ```
-ai_written_tools/
+/
 ├── README.md                    # 项目说明文档
 ├── icmp_ping/                   # ICMP Ping 监控工具
 │   ├── monitor_ping.py          # ICMP ping 监控脚本
